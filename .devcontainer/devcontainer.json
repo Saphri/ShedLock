@@ -1,13 +1,13 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/java
 {
-	"name": "Java",
+	"name": "ShedLock",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/java:1-17-bullseye",
 
 	"features": {
 		"ghcr.io/devcontainers/features/java:1": {
-			"version": "17",
+			"version": "none",
 			"installMaven": "true",
 			"installGradle": "false"
 		},
