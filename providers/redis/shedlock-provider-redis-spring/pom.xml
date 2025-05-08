@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>5.16.1-SNAPSHOT</version>
+        <version>6.6.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-redis-spring</artifactId>
-    <version>5.16.1-SNAPSHOT</version>
+    <version>6.6.1-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
@@ -21,13 +21,13 @@
         <dependency>
             <groupId>org.springframework.data</groupId>
             <artifactId>spring-data-redis</artifactId>
-            <version>3.3.5</version>
+            <version>3.4.5</version>
         </dependency>
 
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-core</artifactId>
-            <version>3.6.11</version>
+            <version>3.7.5</version>
             <optional>true</optional>
         </dependency>
 
@@ -39,9 +39,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.kstyrc</groupId>
-            <artifactId>embedded-redis</artifactId>
-            <version>0.6</version>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-test-support-redis</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -55,14 +55,14 @@
         <dependency>
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
-            <version>6.4.0.RELEASE</version>
+            <version>6.6.0.RELEASE</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-data-32</artifactId>
-            <version>3.37.0</version>
+            <version>3.46.0</version>
             <scope>test</scope>
         </dependency>
 

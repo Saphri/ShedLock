@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>5.16.1-SNAPSHOT</version>
+        <version>6.6.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <description>BOM for ShedLock modules</description>
     <artifactId>shedlock-bom</artifactId>
-    <version>5.16.1-SNAPSHOT</version>
+    <version>6.6.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <dependencyManagement>
@@ -21,12 +21,12 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-micronaut</artifactId>
+                <artifactId>shedlock-micronaut4</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-micronaut4</artifactId>
+                <artifactId>shedlock-cdi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -47,6 +47,11 @@
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-jdbc-template</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -86,6 +91,11 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-opensearch-java</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-couchbase-javaclient3</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -101,12 +111,12 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-redis-spring</artifactId>
+                <artifactId>shedlock-provider-redis-lettuce</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-redis-quarkus2</artifactId>
+                <artifactId>shedlock-provider-redis-spring</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -147,6 +157,26 @@
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-spanner</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-s3</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-s3v2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-elasticsearch8</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-elasticsearch9</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

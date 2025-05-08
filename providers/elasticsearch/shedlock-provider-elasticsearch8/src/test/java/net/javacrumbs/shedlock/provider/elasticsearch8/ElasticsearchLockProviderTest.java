@@ -58,7 +58,7 @@ public class ElasticsearchLockProviderTest extends AbstractLockProviderIntegrati
 
     @Container
     private static final ElasticsearchContainer container =
-            new ElasticsearchContainer(DEFAULT_IMAGE_NAME.withTag("7.17.5")).withPassword("elastic1234");
+            new ElasticsearchContainer(DEFAULT_IMAGE_NAME.withTag("7.17.28")).withPassword("elastic1234");
 
     private ElasticsearchClient client;
     private ElasticsearchLockProvider lockProvider;

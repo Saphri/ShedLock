@@ -3,16 +3,16 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>5.16.1-SNAPSHOT</version>
+        <version>6.6.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-cassandra</artifactId>
-    <version>5.16.1-SNAPSHOT</version>
+    <version>6.6.1-SNAPSHOT</version>
 
     <properties>
-        <java-driver.version>4.17.0</java-driver.version>
+        <java-driver.version>4.19.0</java-driver.version>
     </properties>
 
     <dependencies>
@@ -23,13 +23,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.datastax.oss</groupId>
+            <groupId>org.apache.cassandra</groupId>
             <artifactId>java-driver-core</artifactId>
             <version>${java-driver.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.datastax.oss</groupId>
+            <groupId>org.apache.cassandra</groupId>
             <artifactId>java-driver-query-builder</artifactId>
             <version>${java-driver.version}</version>
         </dependency>

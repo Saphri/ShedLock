@@ -19,17 +19,13 @@
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-parent</artifactId>
     <packaging>pom</packaging>
-    <version>5.16.1-SNAPSHOT</version>
+    <version>6.6.1-SNAPSHOT</version>
     <modules>
         <module>shedlock-bom</module>
         <module>shedlock-core</module>
-        <module>cdi/shedlock-cdi-vintage</module>
         <module>cdi/shedlock-cdi</module>
         <module>cdi/test/quarkus-test</module>
-        <module>micronaut/shedlock-micronaut</module>
         <module>micronaut/shedlock-micronaut4</module>
-        <module>micronaut/test/micronaut-jdbc</module>
-        <module>micronaut/test/micronaut-jdbc-template</module>
         <module>micronaut/test/micronaut4-jdbc</module>
         <module>micronaut/test/micronaut4-jdbc-template</module>
         <module>spring/shedlock-spring</module>
@@ -51,14 +47,16 @@
         <module>providers/r2dbc/shedlock-provider-r2dbc</module>
         <module>providers/mongo/shedlock-provider-mongo</module>
         <module>providers/mongo/shedlock-provider-mongo-reactivestreams</module>
-        <module>providers/neo4j/shedlock-provider-neo4j</module>
         <module>providers/elasticsearch/shedlock-provider-elasticsearch8</module>
+        <module>providers/elasticsearch/shedlock-provider-elasticsearch9</module>
         <module>providers/opensearch/shedlock-provider-opensearch</module>
+        <module>providers/opensearch/shedlock-provider-opensearch-java</module>
         <module>providers/couchbase/shedlock-provider-couchbase-javaclient3</module>
         <module>providers/zookeeper/shedlock-provider-zookeeper-curator</module>
+        <module>providers/redis/shedlock-test-support-redis</module>
         <module>providers/redis/shedlock-provider-redis-jedis4</module>
+        <module>providers/redis/shedlock-provider-redis-lettuce</module>
         <module>providers/redis/shedlock-provider-redis-spring</module>
-        <module>providers/redis/shedlock-provider-redis-quarkus2</module>
         <module>providers/dynamodb/shedlock-provider-dynamodb2</module>
         <module>providers/cassandra/shedlock-provider-cassandra</module>
         <module>providers/consul/shedlock-provider-consul</module>
@@ -68,27 +66,28 @@
         <module>providers/memcached/shedlock-provider-memcached-spy</module>
         <module>providers/datastore/shedlock-provider-datastore</module>
         <module>providers/spanner/shedlock-provider-spanner</module>
+        <module>providers/neo4j/shedlock-provider-neo4j</module>
+        <module>providers/s3/shedlock-provider-s3</module>
+        <module>providers/s3/shedlock-provider-s3v2</module>
         <module>providers/jetstream/shedlock-provider-jetstream</module>
     </modules>
 
     <properties>
-        <spring.version>6.1.14</spring.version>
+        <spring.version>6.2.6</spring.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jdk.version>17</jdk.version>
-        <spring-boot-current.version>3.3.5</spring-boot-current.version>
-        <junit.ver>5.11.3</junit.ver>
-        <test-containers.ver>1.20.3</test-containers.ver>
-        <kotlin.ver>2.0.21</kotlin.ver>
-        <micronaut3.version>3.10.4</micronaut3.version>
-        <micronaut3-data.version>3.9.7</micronaut3-data.version>
-        <micronaut4.version>4.6.3</micronaut4.version>
-        <micronaut4.validation.version>4.8.0</micronaut4.validation.version>
+        <spring-boot-current.version>3.4.5</spring-boot-current.version>
+        <junit.ver>5.12.2</junit.ver>
+        <test-containers.ver>1.21.0</test-containers.ver>
+        <kotlin.ver>2.1.20</kotlin.ver>
+        <micronaut4.version>4.8.2</micronaut4.version>
+        <micronaut4.validation.version>4.9.0</micronaut4.validation.version>
         <micronaut4-data.version>4.8.1</micronaut4-data.version>
-        <logback.ver>1.5.12</logback.ver>
-        <awaitility.ver>4.2.2</awaitility.ver>
-        <assertj.ver>3.26.3</assertj.ver>
-        <mockito.ver>5.14.2</mockito.ver>
-        <slf4j.ver>2.0.16</slf4j.ver>
+        <logback.ver>1.5.18</logback.ver>
+        <awaitility.ver>4.3.0</awaitility.ver>
+        <assertj.ver>3.27.3</assertj.ver>
+        <mockito.ver>5.17.0</mockito.ver>
+        <slf4j.ver>2.0.17</slf4j.ver>
         <fork.count>1</fork.count>
     </properties>
 
@@ -97,7 +96,7 @@
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.43.0</version>
+                <version>2.44.4</version>
                 <configuration>
                     <java>
                         <palantirJavaFormat><version>2.38.0</version></palantirJavaFormat>
@@ -113,7 +112,7 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.0</version>
                 <configuration>
                     <release>${jdk.version}</release>
                 </configuration>
@@ -121,7 +120,7 @@
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
-                <version>4.6</version>
+                <version>5.0.0</version>
                 <configuration>
                     <header>header.txt</header>
                     <excludes>
@@ -134,7 +133,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.5.3</version>
                 <configuration>
                     <forkCount>${fork.count}</forkCount>
                     <argLine>-Xmx512m</argLine>
@@ -148,7 +147,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.10.1</version>
+                <version>3.11.2</version>
                 <configuration>
                     <failOnError>false</failOnError>
                 </configuration>
@@ -156,7 +155,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
-                <version>3.1.3</version>
+                <version>3.1.4</version>
             </plugin>
         </plugins>
     </build>
@@ -196,7 +195,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>versions-maven-plugin</artifactId>
-                        <version>2.17.1</version>
+                        <version>2.18.0</version>
                     </plugin>
                 </plugins>
             </build>

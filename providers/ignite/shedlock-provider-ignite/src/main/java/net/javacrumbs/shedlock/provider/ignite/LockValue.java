@@ -16,6 +16,7 @@ package net.javacrumbs.shedlock.provider.ignite;
 import java.time.Instant;
 
 /** Value object for ShedLock cache. */
+// Don't convert to record, does not work
 class LockValue {
     /** Locked at time. */
     private final Instant lockedAt;

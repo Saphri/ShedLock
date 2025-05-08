@@ -3,16 +3,16 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>5.16.1-SNAPSHOT</version>
+        <version>6.6.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-spanner</artifactId>
-    <version>5.16.1-SNAPSHOT</version>
+    <version>6.6.1-SNAPSHOT</version>
 
     <properties>
-        <google-cloud-spanner.version>6.80.1</google-cloud-spanner.version>
+        <google-cloud-spanner.version>6.92.0</google-cloud-spanner.version>
     </properties>
 
     <dependencies>
