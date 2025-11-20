@@ -1,6 +1,6 @@
 ShedLock
 ========
-[![Apache License 2](https://img.shields.io/badge/license-ASF2-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt) [![Build Status](https://github.com/lukas-krecan/ShedLock/workflows/CI/badge.svg)](https://github.com/lukas-krecan/ShedLock/actions) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/net.javacrumbs.shedlock/shedlock-parent/badge.svg)](https://maven-badges.herokuapp.com/maven-central/net.javacrumbs.shedlock/shedlock-parent)
+[![Apache License 2](https://img.shields.io/badge/license-ASF2-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt) [![Build Status](https://github.com/lukas-krecan/ShedLock/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/lukas-krecan/ShedLock/actions)
 
 ShedLock makes sure that your scheduled tasks are executed at most once at the same time.
 If a task is being executed on one node, it acquires a lock which prevents execution of the same task from another node (or thread).
@@ -35,7 +35,6 @@ executed repeatedly. Moreover, the locks are time-based and ShedLock assumes tha
   - [OpenSearch](#opensearch)
   - [CosmosDB](#cosmosdb)
   - [Cassandra](#cassandra)
-  - [Consul](#consul)
   - [ArangoDB](#arangodb)
   - [Neo4j](#neo4j)
   - [Etcd](#etcd)
@@ -43,7 +42,9 @@ executed repeatedly. Moreover, the locks are time-based and ShedLock assumes tha
   - [In-Memory](#in-memory)
   - [Memcached](#memcached-using-spymemcached)
   - [Datastore](#datastore)
+  - [Firestore](#firestore)
   - [S3](#s3)
+  - [NATS Jetstream](#nats-jetstream)
 + [Multi-tenancy](#multi-tenancy)
 + [Customization](#customization)
 + [Duration specification](#duration-specification)
@@ -79,7 +80,7 @@ First of all, we have to import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-spring</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -180,7 +181,7 @@ Add dependency
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-jdbc-template</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -240,7 +241,7 @@ is in flux and may easily break.
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-r2dbc</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -263,7 +264,7 @@ Add dependency
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-jooq</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -287,6 +288,30 @@ end-up being part of the enclosing transaction.
 If you need to configure the table name, schema or column names, you can use jOOQ render mapping as
 described [here](https://github.com/lukas-krecan/ShedLock/issues/1830#issuecomment-2015820509).
 
+#### Exposed lock provider
+First, create lock table as described in the [JdbcTemplate](#jdbctemplate) section above.
+
+Add dependency
+
+```xml
+<dependency>
+    <groupId>net.javacrumbs.shedlock</groupId>
+    <artifactId>shedlock-provider-exposed</artifactId>
+    <version>7.1.0</version>
+</dependency>
+```
+
+Configure:
+
+```kotlin
+import net.javacrumbs.shedlock.provider.exposed;
+
+...
+@Bean
+fun getLockProvider(database: Database) = ExposedLockProvider(database)
+```
+
+
 #### Micronaut Data Jdbc
 If you are using Micronaut data, and you do not want to add dependency on Spring JDBC, you can use
 Micronaut JDBC support. Just be aware that it has just a basic functionality when compared to
@@ -300,7 +325,7 @@ Add dependency
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-jdbc-micronaut</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -323,7 +348,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-mongo</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -336,7 +361,7 @@ import net.javacrumbs.shedlock.provider.mongo.MongoLockProvider;
 
 @Bean
 public LockProvider lockProvider(MongoClient mongo) {
-    return new MongoLockProvider(mongo.getDatabase(databaseName))
+    return new MongoLockProvider(mongo.getDatabase(databaseName));
 }
 ```
 
@@ -350,7 +375,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-mongo-reactivestreams</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -363,7 +388,7 @@ import net.javacrumbs.shedlock.provider.mongo.reactivestreams.ReactiveStreamsMon
 
 @Bean
 public LockProvider lockProvider(MongoClient mongo) {
-    return new ReactiveStreamsMongoLockProvider(mongo.getDatabase(databaseName))
+    return new ReactiveStreamsMongoLockProvider(mongo.getDatabase(databaseName));
 }
 ```
 
@@ -379,7 +404,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-dynamodb2</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -406,7 +431,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-zookeeper-curator</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -430,7 +455,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-redis-spring</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -454,7 +479,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-redis-spring</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -483,7 +508,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-redis-jedis4</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -507,7 +532,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-hazelcast4</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -533,7 +558,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-redis-lettuce</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -555,7 +580,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-couchbase-javaclient3</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -580,9 +605,8 @@ I am really not sure if it's a good idea to use Elasticsearch as a lock provider
 ```xml
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
-    <artifactId>shedlock-provider-elasticsearch8</artifactId>
-    <!--     <artifactId>shedlock-provider-elasticsearch9</artifactId> -->
-    <version>6.7.0</version>
+    <artifactId>shedlock-provider-elasticsearch9</artifactId>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -605,9 +629,8 @@ Import the project
 ```xml
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
-    <!-- Use shedlock-provider-opensearch if you are still using RestHighLevelClient -->
     <artifactId>shedlock-provider-opensearch-java</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -635,7 +658,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-cassandra</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -661,41 +684,13 @@ CREATE TABLE shedlock.lock (name text PRIMARY KEY, lockUntil timestamp, lockedAt
 
 Please, note that CassandraLockProvider uses Cassandra driver v4, which is part of Spring Boot since 2.3.
 
-#### Consul
-ConsulLockProvider has one limitation: lockAtMostFor setting will have a minimum value of 10 seconds. It is dictated by consul's session limitations.
-
-Import the project
-
-```xml
-<dependency>
-    <groupId>net.javacrumbs.shedlock</groupId>
-    <artifactId>shedlock-provider-consul</artifactId>
-    <version>6.7.0</version>
-</dependency>
-```
-
-Configure:
-
-```java
-import net.javacrumbs.shedlock.provider.consul.ConsulLockProvider;
-
-...
-
-@Bean // for micronaut please define preDestroy property @Bean(preDestroy="close")
-public ConsulLockProvider lockProvider(com.ecwid.consul.v1.ConsulClient consulClient) {
-    return new ConsulLockProvider(consulClient);
-}
-```
-
-Please, note that Consul lock provider uses [ecwid consul-api client](https://github.com/Ecwid/consul-api), which is part of spring cloud consul integration (the `spring-cloud-starter-consul-discovery` package).
-
 #### ArangoDB
 Import the project
 ```xml
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-arangodb</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -721,7 +716,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-neo4j</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -746,7 +741,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-etcd-jetcd</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -770,7 +765,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-ignite</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -795,7 +790,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-inmemory</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
     <scope>test</scope>
 </dependency>
 ```
@@ -821,7 +816,7 @@ Import
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-memcached-spy</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -852,7 +847,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-datastore</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -868,13 +863,52 @@ public LockProvider lockProvider(com.google.cloud.datastore.Datastore datastore)
 }
 
 ```
+
+#### Firestore
+
+Import the project
+```xml
+<dependency>
+    <groupId>net.javacrumbs.shedlock</groupId>
+    <artifactId>shedlock-provider-firestore</artifactId>
+    <version>7.1.0</version>
+</dependency>
+```
+
+and configure
+```java
+import net.javacrumbs.shedlock.provider.firestore.FirestoreLockProvider;
+
+...
+
+@Bean
+public LockProvider lockProvider(com.google.cloud.firestore.Firestore firestore) {
+    return new FirestoreLockProvider(firestore);
+}
+```
+
+For more fine-grained configuration, you can use the builder:
+
+```java
+@Bean
+public LockProvider lockProvider(com.google.cloud.firestore.Firestore firestore) {
+    return new FirestoreLockProvider(
+        FirestoreLockProvider.Configuration.builder()
+            .withFirestore(firestore)
+            .withCollectionName("custom_lock_collection")
+            .withFieldNames(new FirestoreLockProvider.FieldNames("custom_lock_until", "custom_locked_at", "custom_locked_by"))
+            .build()
+    );
+}
+```
+
 #### Spanner
 Import the project
 ```xml
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-spanner</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 Configure
@@ -912,9 +946,7 @@ Import the project
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-s3v2</artifactId>
-    <!-- Or for V1 driver: -->
-    <!-- <artifactId>shedlock-provider-s3</artifactId> -->
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -930,47 +962,30 @@ public LockProvider lockProvider(S3Client s3Client) {
 }
 ```
 
-#### JetStream
-NatsJetStreamLockProvider has some limitations due to how NATS have implemented TTL, but its still useful for most usecases.
+#### NATS JetStream
+The NATS JetStream provider uses a Key-Value (KV) store to manage locks. It operates out of a single, shared bucket named `shedlock-locks` by default, which is created automatically if it does not exist.
 
-100ms is the smallest lock timing NATS support (currently NatsJetStreamLockProvider will silently increase the values below this to 100ms). Reaper timings of TTL expired locks cannot be configured in NATS currently, so timing is best effort.
-
-TTL is currently defined on 'bucket' level, meaning a lockname is fixed to a TTL when first encountered. So avoid using the same lockname with different timing settings.
-
-Dont do:
-@SchedulerLock(name = "scheduledTaskName", lockAtMostFor = "5m")
-.. (somewhere else)
-@SchedulerLock(name = "scheduledTaskName", lockAtMostFor = "10m")
-
-But instead you can do:
-@SchedulerLock(name = "scheduledTaskName-5m", lockAtMostFor = "5m")
-.. (somewhere else)
-@SchedulerLock(name = "scheduledTaskName-10m", lockAtMostFor = "10m")
-
-Buckets are auto created with fixed TTL, but never deleted. So any timing changes will require manual deletion of the bucket. NatsJetStreamLockProvider will trigger log warning if this mismatch is detected.
-
-Import the project
+Import the project:
 
 ```xml
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-provider-jetstream</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
 Configure:
 
-Configure:
-
 ```java
 import net.javacrumbs.shedlock.provider.nats.jetstream.NatsJetStreamLockProvider;
+import io.nats.client.Connection;
 
 ...
 
 @Bean
-public NatsJetStreamLockProvider lockProvider(io.nats.client.Connection connection) {
-    return new NatsJetStreamLockProvider(connection);
+public LockProvider lockProvider(Connection natsConnection) {
+    return new NatsJetStreamLockProvider(natsConnection);
 }
 ```
 
@@ -982,7 +997,7 @@ private static abstract class MultiTenancyLockProvider implements LockProvider {
     private final ConcurrentHashMap<String, LockProvider> providers = new ConcurrentHashMap<>();
 
     @Override
-    public @NonNull Optional<SimpleLock> lock(@NonNull LockConfiguration lockConfiguration) {
+    public Optional<SimpleLock> lock(LockConfiguration lockConfiguration) {
         String tenantName = getTenantName(lockConfiguration);
         return providers.computeIfAbsent(tenantName, this::createLockProvider).lock(lockConfiguration);
     }
@@ -1059,7 +1074,7 @@ Import the project:
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-micronaut4</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -1096,7 +1111,7 @@ Import the project:
 <dependency>
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-cdi</artifactId>
-    <version>6.7.0</version>
+    <version>7.1.0</version>
 </dependency>
 ```
 
@@ -1239,14 +1254,15 @@ after another, `lockAtLeastFor` can prevent it.
 
 # Compatibility matrix
 
-| ShedLock Version | Minimal JVM version | Tested with                                                        |
-|------------------|---------------------|--------------------------------------------------------------------|
-| 6.x.x            | 17                  | Spring 6.2, 6.1 <br/>Spring Boot 3.4, 3.3 <br/>Micronaut 4         |
+| ShedLock Version | Minimal JVM version | Tested with                                                       |
+|------------------|---------------------|-------------------------------------------------------------------|
+| 7.x.x            | 17                  | Spring 7.0, 6.2, <br/>Spring Boot 4.x, 3.5, 3.4<br/>Micronaut 4   |
+| 6.x.x            | 17                  | Spring 6.2, 6.1 <br/>Spring Boot 3.5, 3.4, 3.3 <br/>Micronaut 4   |
 | 5.x.x            | 17                  | Spring 6.1, 6.0 <br/>Spring Boot 3.4, 3.3, 3.2 <br/>Micronaut 3, 4 |
-| 4.x.x            | 8                   | Spring 6.0, 5.3 <br/>Spring Boot 3.0, 2.7, 2.6                     |
-| 3.x.x            | 8                   | Spring 5.2, 5.1 <br/>Spring Boot 2.2, 2.1                          |
-| 2.x.x            | 8                   | Spring 5.1, 5.0 <br/>Spring Boot 2.1                               |
-| 1.x.x            | 8                   | Spring 5.0 <br/>Spring Boot 2.0                                    |
+| 4.x.x            | 8                   | Spring 6.0, 5.3 <br/>Spring Boot 3.0, 2.7, 2.6                    |
+| 3.x.x            | 8                   | Spring 5.2, 5.1 <br/>Spring Boot 2.2, 2.1                         |
+| 2.x.x            | 8                   | Spring 5.1, 5.0 <br/>Spring Boot 2.1                              |
+| 1.x.x            | 8                   | Spring 5.0 <br/>Spring Boot 2.0                                   |
 
 ShedLock may work with additional versions of the Spring, this table just depicts what it was tested with.
 

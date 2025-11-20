@@ -13,6 +13,7 @@
  */
 package net.javacrumbs.shedlock.spring.aop;
 
+import static java.util.Objects.requireNonNull;
 import static net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock.InterceptMode;
 
 import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
@@ -25,21 +26,23 @@ public class SchedulerLockConfigurationSelector implements ImportSelector {
 
     @Override
     public String[] selectImports(AnnotationMetadata metadata) {
-        AnnotationAttributes attributes = AnnotationAttributes.fromMap(
-                metadata.getAnnotationAttributes(EnableSchedulerLock.class.getName(), false));
+        AnnotationAttributes attributes = requireNonNull(AnnotationAttributes.fromMap(
+                metadata.getAnnotationAttributes(EnableSchedulerLock.class.getName(), false)));
         InterceptMode mode = attributes.getEnum("interceptMode");
         return switch (mode) {
-            case PROXY_METHOD -> new String[] {
-                AutoProxyRegistrar.class.getName(),
-                LockConfigurationExtractorConfiguration.class.getName(),
-                MethodProxyLockConfiguration.class.getName()
-            };
-            case PROXY_SCHEDULER -> new String[] {
-                AutoProxyRegistrar.class.getName(),
-                LockConfigurationExtractorConfiguration.class.getName(),
-                SchedulerProxyLockConfiguration.class.getName(),
-                RegisterDefaultTaskSchedulerPostProcessor.class.getName()
-            };
+            case PROXY_METHOD ->
+                new String[] {
+                    AutoProxyRegistrar.class.getName(),
+                    LockConfigurationExtractorConfiguration.class.getName(),
+                    MethodProxyLockConfiguration.class.getName()
+                };
+            case PROXY_SCHEDULER ->
+                new String[] {
+                    AutoProxyRegistrar.class.getName(),
+                    LockConfigurationExtractorConfiguration.class.getName(),
+                    SchedulerProxyLockConfiguration.class.getName(),
+                    RegisterDefaultTaskSchedulerPostProcessor.class.getName()
+                };
         };
     }
 }

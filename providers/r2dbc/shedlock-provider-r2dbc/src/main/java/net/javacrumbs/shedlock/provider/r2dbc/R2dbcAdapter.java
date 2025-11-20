@@ -3,36 +3,34 @@ package net.javacrumbs.shedlock.provider.r2dbc;
 import io.r2dbc.spi.Statement;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.function.Function;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import net.javacrumbs.shedlock.provider.sql.DatabaseProduct;
 
 abstract class R2dbcAdapter {
-    private static final String MSSQL_NAME = "Microsoft SQL Server";
-    private static final String MYSQL_NAME = "MySQL";
-    private static final String JASYNC_MYSQL_NAME = "Jasync-MySQL";
-    private static final String MARIA_NAME = "MariaDB";
-    private static final String ORACLE_NAME = "Oracle Database";
 
-    static R2dbcAdapter create(@NonNull String driver) {
-        return switch (driver) {
-            case MSSQL_NAME -> new DefaultR2dbcAdapter(
-                    (index, name) -> "@" + name, R2dbcAdapter::toLocalDate, R2dbcAdapter::bindByName);
-            case MYSQL_NAME, JASYNC_MYSQL_NAME, MARIA_NAME -> new DefaultR2dbcAdapter(
-                    (index, name) -> "?", R2dbcAdapter::toLocalDate, R2dbcAdapter::bindByIndex);
-            case ORACLE_NAME -> new DefaultR2dbcAdapter(
-                    (index, name) -> ":" + name, R2dbcAdapter::toLocalDate, R2dbcAdapter::bindByName);
-            default -> new DefaultR2dbcAdapter(
-                    (index, name) -> "$" + index, R2dbcAdapter::toInstant, R2dbcAdapter::bindByIndex);
+    static R2dbcAdapter create(DatabaseProduct databaseProduct) {
+        return switch (databaseProduct) {
+            case SQL_SERVER ->
+                new DefaultR2dbcAdapter(
+                        (index, name) -> "@" + name, R2dbcAdapter::toLocalDateTime, R2dbcAdapter::bindByName);
+            case MY_SQL, MARIA_DB ->
+                new DefaultR2dbcAdapter((index, name) -> "?", R2dbcAdapter::toLocalDateTime, R2dbcAdapter::bindByIndex);
+            case ORACLE ->
+                new DefaultR2dbcAdapter(
+                        (index, name) -> ":" + name, R2dbcAdapter::toLocalDateTime, R2dbcAdapter::bindByName);
+            default ->
+                new DefaultR2dbcAdapter(
+                        (index, name) -> "$" + index, R2dbcAdapter::toInstant, R2dbcAdapter::bindByIndex);
         };
     }
 
-    private static Instant toInstant(Instant date) {
-        return date;
+    private static Instant toInstant(ZonedDateTime date) {
+        return date.toInstant();
     }
 
-    private static LocalDateTime toLocalDate(Instant date) {
-        return LocalDateTime.ofInstant(date, ZoneId.systemDefault());
+    private static LocalDateTime toLocalDateTime(ZonedDateTime dateTime) {
+        return dateTime.toLocalDateTime();
     }
 
     private static void bindByName(Statement statement, int index, String name, Object value) {
@@ -49,13 +47,13 @@ abstract class R2dbcAdapter {
 
     private static class DefaultR2dbcAdapter extends R2dbcAdapter {
         private final ParameterResolver parameterResolver;
-        private final Function<Instant, Object> dateConverter;
+        private final Function<ZonedDateTime, Object> dateConverter;
         private final ValueBinder binder;
 
         private DefaultR2dbcAdapter(
-                @NonNull ParameterResolver parameterResolver,
-                @NonNull Function<Instant, Object> dateConverter,
-                @NonNull ValueBinder binder) {
+                ParameterResolver parameterResolver,
+                Function<ZonedDateTime, Object> dateConverter,
+                ValueBinder binder) {
             this.parameterResolver = parameterResolver;
             this.dateConverter = dateConverter;
             this.binder = binder;
@@ -72,8 +70,8 @@ abstract class R2dbcAdapter {
         }
 
         private Object normalizeValue(Object value) {
-            if (value instanceof Instant) {
-                return dateConverter.apply((Instant) value);
+            if (value instanceof ZonedDateTime dateTime) {
+                return dateConverter.apply(dateTime);
             } else {
                 return value;
             }

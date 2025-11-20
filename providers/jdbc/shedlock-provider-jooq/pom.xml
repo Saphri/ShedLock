@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-jooq</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <dependencies>
         <dependency>
@@ -21,7 +21,14 @@
         <dependency>
             <groupId>org.jooq</groupId>
             <artifactId>jooq</artifactId>
-            <version>3.19.20</version>
+            <version>3.20.9</version>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>4.0.4</version>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -38,21 +45,68 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>
-                                net.javacrumbs.shedlock.provider.jooq
-                            </Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+    <profiles>
+        <profile>
+            <id>generate-jooq</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>testcontainers-jooq-codegen-maven-plugin</artifactId>
+                        <version>0.0.4</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>testcontainers-postgresql</artifactId>
+                                <version>${test-containers.ver}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.postgresql</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>42.7.8</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-codegen</artifactId>
+                                <version>3.20.9</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <id>generate-jooq-sources</id>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <phase>generate-sources</phase>
+                                <configuration>
+                                    <database>
+                                        <type>POSTGRES</type>
+                                        <containerImage>postgres:18-alpine</containerImage>
+                                    </database>
+                                    <liquibase>
+                                        <changeLogPath>src/liquibase/changelog/db.changelog-root.xml</changeLogPath>
+                                        <liquibaseSchemaName>public</liquibaseSchemaName>
+                                        <defaultSchemaName>public</defaultSchemaName>
+                                    </liquibase>
+                                    <jooq>
+                                        <generator>
+                                            <database>
+                                                <includes>.*</includes>
+                                                <excludes>DATABASECHANGELOG</excludes>
+                                                <inputSchema>public</inputSchema>
+                                            </database>
+                                            <target>
+                                                <packageName>net.javacrumbs.shedlock.provider.jooq</packageName>
+                                                <directory>target/generated-sources/jooq</directory>
+                                            </target>
+                                        </generator>
+                                    </jooq>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

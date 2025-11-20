@@ -14,6 +14,7 @@
 package net.javacrumbs.shedlock.provider.dynamodb2;
 
 import static java.time.Instant.now;
+import static java.util.Objects.requireNonNull;
 import static net.javacrumbs.shedlock.provider.dynamodb2.DynamoDBLockProvider.LOCKED_AT;
 import static net.javacrumbs.shedlock.provider.dynamodb2.DynamoDBLockProvider.LOCKED_BY;
 import static net.javacrumbs.shedlock.provider.dynamodb2.DynamoDBLockProvider.LOCK_UNTIL;
@@ -23,9 +24,10 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import net.javacrumbs.shedlock.test.support.AbstractLockProviderIntegrationTest;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.localstack.LocalStackContainer;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -39,15 +41,19 @@ public abstract class AbstractDynamoDBLockProviderIntegrationTest extends Abstra
     protected static final String ID = "_id2";
 
     @Container
-    static final DynamoDbContainer dynamoDbContainer =
-            new DynamoDbContainer("amazon/dynamodb-local:2.6.1").withExposedPorts(8000);
+    static final LocalStackContainer dynamoDbContainer =
+            new LocalStackContainer(DockerImageName.parse("localstack/localstack:latest"));
 
     protected static final String TABLE_NAME = "Shedlock";
+
+    @SuppressWarnings("NullAway.Init")
     protected static DynamoDbClient dynamodb;
 
     protected static void waitForTableBeingActive() {
-        while (getTableStatus() != TableStatus.ACTIVE)
-            ;
+        while (getTableStatus() != TableStatus.ACTIVE) {
+            // Avoid empty-loop warnings; politely yield while waiting
+            Thread.onSpinWait();
+        }
     }
 
     private static TableStatus getTableStatus() {
@@ -78,11 +84,11 @@ public abstract class AbstractDynamoDBLockProviderIntegrationTest extends Abstra
         Map<String, AttributeValue> lockItem = getLockItem(lockName);
         assertThat(getTimestamp(lockItem, LOCK_UNTIL)).isBeforeOrEqualTo(now());
         assertThat(getTimestamp(lockItem, LOCKED_AT)).isBeforeOrEqualTo(now());
-        assertThat(lockItem.get(LOCKED_BY).s()).isNotEmpty();
+        assertThat(requireNonNull(lockItem.get(LOCKED_BY)).s()).isNotEmpty();
     }
 
     private Instant getTimestamp(Map<String, AttributeValue> lockItem, String name) {
-        return Instant.parse(lockItem.get(name).s());
+        return Instant.parse(requireNonNull(lockItem.get(name)).s());
     }
 
     @Override
@@ -90,14 +96,8 @@ public abstract class AbstractDynamoDBLockProviderIntegrationTest extends Abstra
         Map<String, AttributeValue> lockItem = getLockItem(lockName);
         assertThat(getTimestamp(lockItem, LOCK_UNTIL)).isAfter(now());
         assertThat(getTimestamp(lockItem, LOCKED_AT)).isBeforeOrEqualTo(now());
-        assertThat(lockItem.get(LOCKED_BY).s()).isNotEmpty();
+        assertThat(requireNonNull(lockItem.get(LOCKED_BY)).s()).isNotEmpty();
     }
 
     protected abstract Map<String, AttributeValue> getLockItem(String lockName);
-
-    private static class DynamoDbContainer extends GenericContainer<DynamoDbContainer> {
-        public DynamoDbContainer(String dockerImageName) {
-            super(dockerImageName);
-        }
-    }
 }

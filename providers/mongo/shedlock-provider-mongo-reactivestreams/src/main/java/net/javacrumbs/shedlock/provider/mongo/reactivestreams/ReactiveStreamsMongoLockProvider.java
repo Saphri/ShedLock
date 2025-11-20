@@ -21,6 +21,8 @@ import static com.mongodb.client.model.Updates.combine;
 import static com.mongodb.client.model.Updates.set;
 
 import com.mongodb.MongoServerException;
+import com.mongodb.ReadConcern;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.reactivestreams.client.MongoCollection;
 import com.mongodb.reactivestreams.client.MongoDatabase;
@@ -33,9 +35,9 @@ import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.SimpleLock;
 import net.javacrumbs.shedlock.support.LockException;
 import net.javacrumbs.shedlock.support.Utils;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
 /**
@@ -80,11 +82,14 @@ public class ReactiveStreamsMongoLockProvider implements ExtensibleLockProvider 
 
     /** Uses Mongo to coordinate locks */
     public ReactiveStreamsMongoLockProvider(MongoDatabase mongoDatabase) {
-        this(mongoDatabase.getCollection(DEFAULT_SHEDLOCK_COLLECTION_NAME));
+        this(mongoDatabase
+                .getCollection(DEFAULT_SHEDLOCK_COLLECTION_NAME)
+                .withWriteConcern(WriteConcern.MAJORITY)
+                .withReadConcern(ReadConcern.MAJORITY));
     }
 
     /**
-     * Uses Mongo to coordinate locks
+     * Uses Mongo to coordinate locks. Please, make sure that the collection has WriteConcern.MAJORITY set.
      *
      * @param collection
      *            Mongo collection to be used
@@ -147,15 +152,14 @@ public class ReactiveStreamsMongoLockProvider implements ExtensibleLockProvider 
                         combine(set(LOCK_UNTIL, lockConfiguration.getUnlockTime()))));
     }
 
-    @Nullable
-    static <T> T execute(Publisher<T> command) {
+    static <T> @Nullable T execute(Publisher<T> command) {
         SingleLockableSubscriber<T> subscriber = new SingleLockableSubscriber<>();
         command.subscribe(subscriber);
         subscriber.await();
         Throwable error = subscriber.getError();
         if (error != null) {
-            if (error instanceof RuntimeException) {
-                throw (RuntimeException) error;
+            if (error instanceof RuntimeException runtimeException) {
+                throw runtimeException;
             } else {
                 throw new LockException("Error when executing Mongo statement", error);
             }

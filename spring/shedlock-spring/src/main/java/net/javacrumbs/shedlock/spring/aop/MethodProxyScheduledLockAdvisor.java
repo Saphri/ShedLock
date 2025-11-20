@@ -21,10 +21,10 @@ import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.core.LockingTaskExecutor.TaskResult;
 import net.javacrumbs.shedlock.spring.ExtendedLockConfigurationExtractor;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
 import org.aopalliance.aop.Advice;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.jspecify.annotations.Nullable;
 import org.springframework.aop.Pointcut;
 import org.springframework.aop.support.AbstractPointcutAdvisor;
 import org.springframework.aop.support.ComposablePointcut;
@@ -67,8 +67,7 @@ class MethodProxyScheduledLockAdvisor extends AbstractPointcutAdvisor {
         }
 
         @Override
-        @Nullable
-        public Object invoke(MethodInvocation invocation) throws Throwable {
+        public @Nullable Object invoke(MethodInvocation invocation) throws Throwable {
             Class<?> returnType = invocation.getMethod().getReturnType();
             if (returnType.isPrimitive() && !void.class.equals(returnType)) {
                 throw new LockingNotSupportedException("Can not lock method returning primitive value");
@@ -90,8 +89,7 @@ class MethodProxyScheduledLockAdvisor extends AbstractPointcutAdvisor {
             }
         }
 
-        @Nullable
-        private static Object toOptional(TaskResult<Object> result) {
+        private static @Nullable Object toOptional(TaskResult<Object> result) {
             if (result.wasExecuted()) {
                 return result.getResult();
             } else {

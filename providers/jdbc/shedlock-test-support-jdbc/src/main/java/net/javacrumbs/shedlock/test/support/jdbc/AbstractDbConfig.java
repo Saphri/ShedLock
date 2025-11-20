@@ -13,21 +13,25 @@
  */
 package net.javacrumbs.shedlock.test.support.jdbc;
 
+import static java.util.Objects.requireNonNull;
+
 import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 abstract class AbstractDbConfig implements DbConfig {
-    private HikariDataSource dataSource;
+    private @Nullable HikariDataSource dataSource;
 
     protected static final String TEST_SCHEMA_NAME = "shedlock_test";
-    private Integer transactionIsolation;
+
+    private @Nullable Integer transactionIsolation;
 
     @Override
     public DataSource getDataSource() {
         if (dataSource == null) {
             startDb();
         }
-        return dataSource;
+        return requireNonNull(dataSource, "DataSource not initialized");
     }
 
     @Override
@@ -47,7 +51,9 @@ abstract class AbstractDbConfig implements DbConfig {
 
     @Override
     public final void shutdownDb() {
-        dataSource.close();
+        if (dataSource != null) {
+            dataSource.close();
+        }
         doShutdownDb();
     }
 

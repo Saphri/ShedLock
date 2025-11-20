@@ -22,6 +22,7 @@ import net.javacrumbs.shedlock.spring.ExtendedLockConfigurationExtractor;
 import org.aopalliance.aop.Advice;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.ClassFilter;
@@ -67,7 +68,7 @@ class SchedulerProxyScheduledLockAdvisor extends AbstractPointcutAdvisor {
         }
 
         @Override
-        public Object invoke(MethodInvocation invocation) throws Throwable {
+        public @Nullable Object invoke(MethodInvocation invocation) throws Throwable {
             Object[] arguments = invocation.getArguments();
             if (arguments.length >= 1) {
                 arguments[0] = wrapTask(arguments[0]);

@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-memcached-spy</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <properties>
         <spymemcached.version>2.12.3</spymemcached.version>
@@ -44,7 +44,7 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${test-containers.ver}</version>
             <scope>test</scope>
         </dependency>
@@ -65,6 +65,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
+                            <!-- Not migrated to JPMS as spy-memcached is a filename-based automodule -->
                             <Automatic-Module-Name>
                                 net.javacrumbs.shedlock.provider.memcached.spy
                             </Automatic-Module-Name>

@@ -14,31 +14,31 @@ import net.javacrumbs.shedlock.test.support.jdbc.AbstractJdbcLockProviderIntegra
 import net.javacrumbs.shedlock.test.support.jdbc.DbConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.TestInstance;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-abstract class AbstractR2dbcTest extends AbstractJdbcLockProviderIntegrationTest {
+public abstract class AbstractR2dbcTest {
     private final DbConfig dbConfig;
 
     private ConnectionFactory connectionFactory;
 
-    AbstractR2dbcTest(DbConfig dbConfig) {
+    protected AbstractR2dbcTest(DbConfig dbConfig) {
         this.dbConfig = dbConfig;
     }
 
     @BeforeAll
     public void startDb() {
-        getDbConfig().startDb();
+        dbConfig.startDb();
 
-        ConnectionFactory cf = ConnectionFactories.get(
-                ConnectionFactoryOptions.parse(getDbConfig().getR2dbcUrl())
-                        .mutate()
-                        .option(USER, getDbConfig().getUsername())
-                        .option(PASSWORD, getDbConfig().getPassword())
-                        .build());
+        ConnectionFactory cf = ConnectionFactories.get(ConnectionFactoryOptions.parse(dbConfig.getR2dbcUrl())
+                .mutate()
+                .option(USER, dbConfig.getUsername())
+                .option(PASSWORD, dbConfig.getPassword())
+                .build());
 
         ConnectionPoolConfiguration configuration = ConnectionPoolConfiguration.builder(cf)
-                .maxIdleTime(Duration.ofMillis(1000))
+                .maxIdleTime(Duration.ofSeconds(1))
                 .maxSize(20)
                 .build();
 
@@ -47,25 +47,45 @@ abstract class AbstractR2dbcTest extends AbstractJdbcLockProviderIntegrationTest
 
     @AfterAll
     public void shutDownDb() {
-        getDbConfig().shutdownDb();
+        dbConfig.shutdownDb();
     }
 
-    @Override
-    protected boolean useDbTime() {
-        return false;
+    @Nested
+    class ClientTime extends AbstractJdbcLockProviderIntegrationTest {
+        @Override
+        protected DbConfig getDbConfig() {
+            return dbConfig;
+        }
+
+        @Override
+        protected StorageBasedLockProvider getLockProvider() {
+            return new R2dbcLockProvider(
+                    R2dbcLockProvider.Configuration.builder(connectionFactory).build());
+        }
+
+        @Override
+        protected boolean useDbTime() {
+            return false;
+        }
     }
 
-    @Override
-    protected StorageBasedLockProvider getLockProvider() {
-        return new R2dbcLockProvider(connectionFactory());
-    }
+    @Nested
+    class DbTime extends AbstractJdbcLockProviderIntegrationTest {
+        @Override
+        protected DbConfig getDbConfig() {
+            return dbConfig;
+        }
 
-    protected ConnectionFactory connectionFactory() {
-        return connectionFactory;
-    }
+        @Override
+        protected StorageBasedLockProvider getLockProvider() {
+            return new R2dbcLockProvider(R2dbcLockProvider.Configuration.builder(connectionFactory)
+                    .usingDbTime()
+                    .build());
+        }
 
-    @Override
-    public DbConfig getDbConfig() {
-        return dbConfig;
+        @Override
+        protected boolean useDbTime() {
+            return true;
+        }
     }
 }

@@ -13,6 +13,8 @@
  */
 package net.javacrumbs.shedlock.test.support.jdbc;
 
+import static java.util.Objects.requireNonNull;
+
 import java.sql.Timestamp;
 import java.time.Instant;
 import javax.sql.DataSource;
@@ -31,7 +33,8 @@ public final class JdbcTestUtils {
     }
 
     public Timestamp getLockedUntil(String lockName) {
-        return jdbcTemplate.queryForObject("SELECT lock_until FROM shedlock WHERE name = ?", Timestamp.class, lockName);
+        return requireNonNull(jdbcTemplate.queryForObject(
+                "SELECT lock_until FROM shedlock WHERE name = ?", Timestamp.class, lockName));
     }
 
     public LockInfo getLockInfo(String lockName) {
@@ -64,7 +67,7 @@ public final class JdbcTestUtils {
         private final Instant lockUntil;
         private final Instant dbTime;
 
-        LockInfo(String name, Instant lockUntil, Instant dbTime) {
+        public LockInfo(String name, Instant lockUntil, Instant dbTime) {
             this.name = name;
             this.lockUntil = lockUntil;
             this.dbTime = dbTime;

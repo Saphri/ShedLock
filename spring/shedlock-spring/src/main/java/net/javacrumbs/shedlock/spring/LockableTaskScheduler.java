@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.concurrent.ScheduledFuture;
 import net.javacrumbs.shedlock.core.LockManager;
 import net.javacrumbs.shedlock.core.LockableRunnable;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
@@ -29,6 +30,7 @@ import org.springframework.scheduling.Trigger;
  * Wraps a all tasks to {@link LockableRunnable} and delegates all calls to a
  * {@link TaskScheduler}.
  */
+@SuppressWarnings("deprecation")
 public class LockableTaskScheduler implements TaskScheduler, DisposableBean {
     private final TaskScheduler taskScheduler;
     private final LockManager lockManager;
@@ -39,7 +41,7 @@ public class LockableTaskScheduler implements TaskScheduler, DisposableBean {
     }
 
     @Override
-    public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
+    public @Nullable ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
         return taskScheduler.schedule(wrap(task), trigger);
     }
 
@@ -99,8 +101,8 @@ public class LockableTaskScheduler implements TaskScheduler, DisposableBean {
 
     @Override
     public void destroy() throws Exception {
-        if (taskScheduler instanceof DisposableBean) {
-            ((DisposableBean) taskScheduler).destroy();
+        if (taskScheduler instanceof DisposableBean disposableBean) {
+            disposableBean.destroy();
         }
     }
 }

@@ -14,39 +14,46 @@
 package net.javacrumbs.shedlock.provider.jdbc.internal;
 
 import static java.util.Objects.requireNonNull;
+import static net.javacrumbs.shedlock.provider.jdbc.internal.NamedSqlTranslator.translate;
+import static net.javacrumbs.shedlock.provider.sql.internal.ErrorCodeUtils.isConstraintViolation;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.Timestamp;
+import java.util.Calendar;
+import java.util.List;
 import java.util.function.BiFunction;
-import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
+import net.javacrumbs.shedlock.provider.jdbc.internal.NamedSqlTranslator.SqlStatement;
+import net.javacrumbs.shedlock.provider.sql.SqlConfiguration;
+import net.javacrumbs.shedlock.provider.sql.SqlStatementsSource;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
 import net.javacrumbs.shedlock.support.LockException;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import org.jspecify.annotations.Nullable;
 
-/** Internal class, please do not use. */
+/**
+ * Internal class, please do not use.
+ */
 public abstract class AbstractJdbcStorageAccessor extends AbstractStorageAccessor {
-    private final String tableName;
+    private final SqlConfiguration configuration;
+    private @Nullable SqlStatementsSource sqlStatementsSource;
 
-    public AbstractJdbcStorageAccessor(@NonNull String tableName) {
-        this.tableName = requireNonNull(tableName, "tableName can not be null");
+    public AbstractJdbcStorageAccessor(SqlConfiguration configuration) {
+        this.configuration = requireNonNull(configuration, "Configuration is null");
     }
 
     @Override
-    public boolean insertRecord(@NonNull LockConfiguration lockConfiguration) {
+    public boolean insertRecord(LockConfiguration lockConfiguration) {
         // Try to insert if the record does not exist (not optimal, but the simplest
         // platform agnostic
         // way)
-        String sql = "INSERT INTO " + tableName + "(name, lock_until, locked_at, locked_by) VALUES(?, ?, ?, ?)";
+        SqlStatementsSource sqlStatementsSource = sqlStatementsSource();
+        String sql = sqlStatementsSource.getInsertStatement();
+        SqlStatement sqlStatement = translate(sql, sqlStatementsSource.params(lockConfiguration));
         return executeCommand(
-                sql,
+                sqlStatement.sql(),
                 statement -> {
-                    statement.setString(1, lockConfiguration.getName());
-                    statement.setTimestamp(2, Timestamp.from(lockConfiguration.getLockAtMostUntil()));
-                    statement.setTimestamp(3, Timestamp.from(ClockProvider.now()));
-                    statement.setString(4, getHostname());
+                    setParameters(statement, sqlStatement.parameters());
                     int insertedRows = statement.executeUpdate();
                     return insertedRows > 0;
                 },
@@ -54,18 +61,14 @@ public abstract class AbstractJdbcStorageAccessor extends AbstractStorageAccesso
     }
 
     @Override
-    public boolean updateRecord(@NonNull LockConfiguration lockConfiguration) {
-        String sql = "UPDATE " + tableName
-                + " SET lock_until = ?, locked_at = ?, locked_by = ? WHERE name = ? AND lock_until <= ?";
+    public boolean updateRecord(LockConfiguration lockConfiguration) {
+        SqlStatementsSource sqlStatementsSource = sqlStatementsSource();
+        String sql = sqlStatementsSource.getUpdateStatement();
+        SqlStatement sqlStatement = translate(sql, sqlStatementsSource.params(lockConfiguration));
         return executeCommand(
-                sql,
+                sqlStatement.sql(),
                 statement -> {
-                    Timestamp now = Timestamp.from(ClockProvider.now());
-                    statement.setTimestamp(1, Timestamp.from(lockConfiguration.getLockAtMostUntil()));
-                    statement.setTimestamp(2, now);
-                    statement.setString(3, getHostname());
-                    statement.setString(4, lockConfiguration.getName());
-                    statement.setTimestamp(5, now);
+                    setParameters(statement, sqlStatement.parameters());
                     int updatedRows = statement.executeUpdate();
                     return updatedRows > 0;
                 },
@@ -73,33 +76,33 @@ public abstract class AbstractJdbcStorageAccessor extends AbstractStorageAccesso
     }
 
     @Override
-    public boolean extend(@NonNull LockConfiguration lockConfiguration) {
-        String sql = "UPDATE " + tableName + " SET lock_until = ? WHERE name = ? AND locked_by = ? AND lock_until > ? ";
+    public boolean extend(LockConfiguration lockConfiguration) {
+        SqlStatementsSource sqlStatementsSource = sqlStatementsSource();
+        String sql = sqlStatementsSource.getExtendStatement();
+        SqlStatement sqlStatement = translate(sql, sqlStatementsSource.params(lockConfiguration));
 
         logger.debug("Extending lock={} until={}", lockConfiguration.getName(), lockConfiguration.getLockAtMostUntil());
 
         return executeCommand(
-                sql,
+                sqlStatement.sql(),
                 statement -> {
-                    statement.setTimestamp(1, Timestamp.from(lockConfiguration.getLockAtMostUntil()));
-                    statement.setString(2, lockConfiguration.getName());
-                    statement.setString(3, getHostname());
-                    statement.setTimestamp(4, Timestamp.from(ClockProvider.now()));
+                    setParameters(statement, sqlStatement.parameters());
                     return statement.executeUpdate() > 0;
                 },
                 this::handleUnlockException);
     }
 
     @Override
-    public void unlock(@NonNull LockConfiguration lockConfiguration) {
-        String sql = "UPDATE " + tableName + " SET lock_until = ? WHERE name = ?";
+    public void unlock(LockConfiguration lockConfiguration) {
+        SqlStatementsSource sqlStatementsSource = sqlStatementsSource();
+        String sql = sqlStatementsSource.getUnlockStatement();
+        SqlStatement sqlStatement = translate(sql, sqlStatementsSource.params(lockConfiguration));
+
         executeCommand(
-                sql,
+                sqlStatement.sql(),
                 statement -> {
-                    statement.setTimestamp(1, Timestamp.from(lockConfiguration.getUnlockTime()));
-                    statement.setString(2, lockConfiguration.getName());
-                    statement.executeUpdate();
-                    return null;
+                    setParameters(statement, sqlStatement.parameters());
+                    return statement.executeUpdate();
                 },
                 this::handleUnlockException);
     }
@@ -108,17 +111,34 @@ public abstract class AbstractJdbcStorageAccessor extends AbstractStorageAccesso
             String sql, SqlFunction<PreparedStatement, T> body, BiFunction<String, SQLException, T> exceptionHandler);
 
     boolean handleInsertionException(String sql, SQLException e) {
-        if (e instanceof SQLIntegrityConstraintViolationException) {
-            // lock record already exists
+
+        if ((e instanceof SQLIntegrityConstraintViolationException) || isConstraintViolation(e.getSQLState())) {
+            logger.debug("Constraint violation, duplicate key error is expected here {}", e.getMessage());
+            return false;
         } else {
-            // can not throw exception here, some drivers (Postgres) do not throw
-            // SQLIntegrityConstraintViolationException on duplicate key
-            // we will try update in the next step, so if there is another problem, an
-            // exception will be
-            // thrown there
-            logger.debug("Exception thrown when inserting record", e);
+            throw new LockException("Failed to execute SQL insertion", e);
         }
-        return false;
+    }
+
+    private SqlStatementsSource sqlStatementsSource() {
+        synchronized (configuration) {
+            if (sqlStatementsSource == null) {
+                sqlStatementsSource = SqlStatementsSource.create(configuration);
+            }
+            return sqlStatementsSource;
+        }
+    }
+
+    private static void setParameters(PreparedStatement statement, List<Object> parameters) throws SQLException {
+        for (int i = 0; i < parameters.size(); i++) {
+            Object value = parameters.get(i);
+            int paramIndex = i + 1;
+            if (value instanceof Calendar cal) {
+                statement.setTimestamp(paramIndex, new java.sql.Timestamp(cal.getTimeInMillis()), cal);
+            } else {
+                statement.setObject(paramIndex, value);
+            }
+        }
     }
 
     boolean handleUpdateException(String sql, SQLException e) {

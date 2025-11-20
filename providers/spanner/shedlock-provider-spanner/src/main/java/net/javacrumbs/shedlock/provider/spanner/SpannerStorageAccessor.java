@@ -11,20 +11,22 @@ import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Mutation.WriteBuilder;
 import com.google.cloud.spanner.Struct;
 import com.google.cloud.spanner.TransactionContext;
+import com.google.cloud.spanner.TransactionRunner;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.provider.spanner.SpannerLockProvider.TableConfiguration;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import net.javacrumbs.shedlock.support.LockException;
 
 /**
  * Accessor for managing lock records within a Google Spanner database.
  * This class is responsible for inserting, updating, extending, and unlocking
  * lock records using Spanner's transactions.
  */
-public class SpannerStorageAccessor extends AbstractStorageAccessor {
+class SpannerStorageAccessor extends AbstractStorageAccessor {
 
     private final String table;
     private final String name;
@@ -57,14 +59,13 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
      * @return {@code true} if the lock was successfully inserted, otherwise {@code false}.
      */
     @Override
-    public boolean insertRecord(@NonNull LockConfiguration lockConfiguration) {
-        return Boolean.TRUE.equals(
-                databaseClient.readWriteTransaction().run(tx -> findLock(tx, lockConfiguration.getName())
-                        .map(lock -> false) // Lock already exists, so we return false.
-                        .orElseGet(() -> {
-                            tx.buffer(buildMutation(lockConfiguration, newInsertBuilder(table)));
-                            return true;
-                        })));
+    public boolean insertRecord(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(run(tx -> findLock(tx, lockConfiguration.getName())
+                .map(lock -> false) // Lock already exists, so we return false.
+                .orElseGet(() -> {
+                    tx.buffer(buildMutation(lockConfiguration, newInsertBuilder(table)));
+                    return true;
+                })));
     }
 
     /**
@@ -74,15 +75,14 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
      * @return {@code true} if the lock was successfully updated, otherwise {@code false}.
      */
     @Override
-    public boolean updateRecord(@NonNull LockConfiguration lockConfiguration) {
-        return Boolean.TRUE.equals(
-                databaseClient.readWriteTransaction().run(tx -> findLock(tx, lockConfiguration.getName())
-                        .filter(lock -> lock.lockedUntil().compareTo(now()) <= 0)
-                        .map(lock -> {
-                            tx.buffer(buildMutation(lockConfiguration, newUpdateBuilder(table)));
-                            return true;
-                        })
-                        .orElse(false)));
+    public boolean updateRecord(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(run(tx -> findLock(tx, lockConfiguration.getName())
+                .filter(lock -> lock.lockedUntil().compareTo(now()) <= 0)
+                .map(lock -> {
+                    tx.buffer(buildMutation(lockConfiguration, newUpdateBuilder(table)));
+                    return true;
+                })
+                .orElse(false)));
     }
 
     private Mutation buildMutation(LockConfiguration lockConfiguration, WriteBuilder builder) {
@@ -104,21 +104,20 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
      * @return {@code true} if the lock was successfully extended, otherwise {@code false}.
      */
     @Override
-    public boolean extend(@NonNull LockConfiguration lockConfiguration) {
-        return Boolean.TRUE.equals(
-                databaseClient.readWriteTransaction().run(tx -> findLock(tx, lockConfiguration.getName())
-                        .filter(lock -> hostname.equals(lock.lockedBy()))
-                        .filter(lock -> lock.lockedUntil().compareTo(now()) > 0)
-                        .map(lock -> {
-                            tx.buffer(newUpdateBuilder(table)
-                                    .set(name)
-                                    .to(lockConfiguration.getName())
-                                    .set(lockUntil)
-                                    .to(toTimestamp(lockConfiguration.getLockAtMostUntil()))
-                                    .build());
-                            return true;
-                        })
-                        .orElse(false)));
+    public boolean extend(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(run(tx -> findLock(tx, lockConfiguration.getName())
+                .filter(lock -> hostname.equals(lock.lockedBy()))
+                .filter(lock -> lock.lockedUntil().compareTo(now()) > 0)
+                .map(lock -> {
+                    tx.buffer(newUpdateBuilder(table)
+                            .set(name)
+                            .to(lockConfiguration.getName())
+                            .set(lockUntil)
+                            .to(toTimestamp(lockConfiguration.getLockAtMostUntil()))
+                            .build());
+                    return true;
+                })
+                .orElse(false)));
     }
 
     /**
@@ -127,8 +126,8 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
      * @param lockConfiguration The lock configuration to unlock.
      */
     @Override
-    public void unlock(@NonNull LockConfiguration lockConfiguration) {
-        databaseClient.readWriteTransaction().run(tx -> {
+    public void unlock(LockConfiguration lockConfiguration) {
+        run(tx -> {
             findLock(tx, lockConfiguration.getName())
                     .filter(lock -> hostname.equals(lock.lockedBy()))
                     .ifPresent(lock -> tx.buffer(newUpdateBuilder(table)
@@ -139,6 +138,14 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
                             .build()));
             return null; // need a return to commit the transaction
         });
+    }
+
+    private <T> @Nullable T run(TransactionRunner.TransactionCallable<T> callable) {
+        try {
+            return databaseClient.readWriteTransaction().run(callable);
+        } catch (Exception e) {
+            throw new LockException("Spanner transaction failed", e);
+        }
     }
 
     /**
@@ -153,7 +160,7 @@ public class SpannerStorageAccessor extends AbstractStorageAccessor {
                 .map(this::newLock);
     }
 
-    Lock newLock(@NonNull Struct row) {
+    Lock newLock(Struct row) {
         return new Lock(
                 row.getString(name), row.getString(lockedBy), row.getTimestamp(lockedAt), row.getTimestamp(lockUntil));
     }

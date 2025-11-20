@@ -4,7 +4,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.spring.annotation.LockProviderToUse;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -17,7 +17,7 @@ class BeanNameSelectingLockProviderSupplier implements LockProviderSupplier {
     }
 
     @Override
-    public LockProvider supply(Object target, Method method, Object[] parameterValues) {
+    public LockProvider supply(@Nullable Object target, Method method, @Nullable Object[] parameterValues) {
         LockProviderToUse annotation = findAnnotation(target, method);
         if (annotation == null) {
             throw noUniqueBeanDefinitionException();
@@ -34,15 +34,16 @@ class BeanNameSelectingLockProviderSupplier implements LockProviderSupplier {
                         + "), use @LockProviderToUse to disambiguate.");
     }
 
-    @Nullable
-    private LockProviderToUse findAnnotation(Object target, Method method) {
+    private @Nullable LockProviderToUse findAnnotation(@Nullable Object target, Method method) {
         LockProviderToUse annotation = AnnotationUtils.findAnnotation(method, LockProviderToUse.class);
         if (annotation != null) {
             return annotation;
         }
-        annotation = AnnotationUtils.findAnnotation(target.getClass(), LockProviderToUse.class);
-        if (annotation != null) {
-            return annotation;
+        if (target != null) {
+            annotation = AnnotationUtils.findAnnotation(target.getClass(), LockProviderToUse.class);
+            if (annotation != null) {
+                return annotation;
+            }
         }
         return method.getDeclaringClass().getPackage().getAnnotation(LockProviderToUse.class);
     }

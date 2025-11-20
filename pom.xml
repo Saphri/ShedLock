@@ -18,8 +18,9 @@
 
     <groupId>net.javacrumbs.shedlock</groupId>
     <artifactId>shedlock-parent</artifactId>
+    <name>ShedLock</name>
     <packaging>pom</packaging>
-    <version>6.7.1-SNAPSHOT</version>
+    <version>7.1.1-SNAPSHOT</version>
     <modules>
         <module>shedlock-bom</module>
         <module>shedlock-core</module>
@@ -39,17 +40,18 @@
         <module>providers/etcd/shedlock-provider-etcd-jetcd</module>
         <module>providers/hazelcast/shedlock-provider-hazelcast4</module>
         <module>providers/jdbc/shedlock-test-support-jdbc</module>
+        <module>providers/sql/shedlock-sql-support</module>
         <module>providers/jdbc/shedlock-provider-jdbc-internal</module>
         <module>providers/jdbc/shedlock-provider-jdbc</module>
         <module>providers/jdbc/shedlock-provider-jooq</module>
+        <module>providers/jdbc/shedlock-provider-exposed</module>
         <module>providers/jdbc/shedlock-provider-jdbc-template</module>
         <module>providers/jdbc/shedlock-provider-jdbc-micronaut</module>
+        <module>providers/jdbc/shedlock-provider-vertx-sqlclient</module>
         <module>providers/r2dbc/shedlock-provider-r2dbc</module>
         <module>providers/mongo/shedlock-provider-mongo</module>
         <module>providers/mongo/shedlock-provider-mongo-reactivestreams</module>
-        <module>providers/elasticsearch/shedlock-provider-elasticsearch8</module>
         <module>providers/elasticsearch/shedlock-provider-elasticsearch9</module>
-        <module>providers/opensearch/shedlock-provider-opensearch</module>
         <module>providers/opensearch/shedlock-provider-opensearch-java</module>
         <module>providers/couchbase/shedlock-provider-couchbase-javaclient3</module>
         <module>providers/zookeeper/shedlock-provider-zookeeper-curator</module>
@@ -60,7 +62,6 @@
         <module>providers/redis/shedlock-provider-redis-spring</module>
         <module>providers/dynamodb/shedlock-provider-dynamodb2</module>
         <module>providers/cassandra/shedlock-provider-cassandra</module>
-        <module>providers/consul/shedlock-provider-consul</module>
         <module>providers/arangodb/shedlock-provider-arangodb</module>
         <module>providers/ignite/shedlock-provider-ignite</module>
         <module>providers/inmemory/shedlock-provider-inmemory</module>
@@ -68,26 +69,25 @@
         <module>providers/datastore/shedlock-provider-datastore</module>
         <module>providers/spanner/shedlock-provider-spanner</module>
         <module>providers/neo4j/shedlock-provider-neo4j</module>
-        <module>providers/s3/shedlock-provider-s3</module>
         <module>providers/s3/shedlock-provider-s3v2</module>
+        <module>providers/firestore/shedlock-provider-firestore</module>
         <module>providers/jetstream/shedlock-provider-jetstream</module>
     </modules>
 
     <properties>
-        <spring.version>6.2.7</spring.version>
+        <spring.version>7.0.0</spring.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jdk.version>17</jdk.version>
-        <spring-boot-current.version>3.4.6</spring-boot-current.version>
-        <junit.ver>5.13.0</junit.ver>
-        <test-containers.ver>1.21.1</test-containers.ver>
-        <kotlin.ver>2.1.21</kotlin.ver>
-        <micronaut4.version>4.8.2</micronaut4.version>
-        <micronaut4.validation.version>4.9.0</micronaut4.validation.version>
+        <spring-boot-current.version>4.0.0-RC1</spring-boot-current.version>
+        <test-containers.ver>2.0.2</test-containers.ver>
+        <kotlin.ver>2.2.21</kotlin.ver>
+        <micronaut4.version>4.10.2</micronaut4.version>
+        <micronaut4.validation.version>4.12.0</micronaut4.validation.version>
         <micronaut4-data.version>4.8.1</micronaut4-data.version>
-        <logback.ver>1.5.18</logback.ver>
+        <logback.ver>1.5.21</logback.ver>
         <awaitility.ver>4.3.0</awaitility.ver>
-        <assertj.ver>3.27.3</assertj.ver>
-        <mockito.ver>5.18.0</mockito.ver>
+        <assertj.ver>3.27.6</assertj.ver>
+        <mockito.ver>5.20.0</mockito.ver>
         <slf4j.ver>2.0.17</slf4j.ver>
         <fork.count>1</fork.count>
     </properties>
@@ -97,10 +97,10 @@
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.44.5</version>
+                <version>3.1.0</version>
                 <configuration>
                     <java>
-                        <palantirJavaFormat><version>2.38.0</version></palantirJavaFormat>
+                        <palantirJavaFormat><version>2.74.0</version></palantirJavaFormat>
                         <removeUnusedImports />
                     </java>
                     <kotlin>
@@ -110,12 +110,23 @@
                         </ktfmt>
                     </kotlin>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
+                <version>3.14.1</version>
                 <configuration>
                     <release>${jdk.version}</release>
+                    <fork>true</fork>
                 </configuration>
             </plugin>
             <plugin>
@@ -134,7 +145,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
+                <version>3.5.4</version>
                 <configuration>
                     <forkCount>${fork.count}</forkCount>
                     <argLine>-Xmx512m</argLine>
@@ -143,15 +154,24 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.2</version>
+                <version>3.5.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.11.2</version>
+                <version>3.12.0</version>
                 <configuration>
-                    <failOnError>false</failOnError>
+                    <doclint>all,-missing</doclint>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -161,10 +181,11 @@
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.7.0</version>
+                <version>0.9.0</version>
                 <extensions>true</extensions>
                 <configuration>
                     <publishingServerId>central</publishingServerId>
+                    <autoPublish>true</autoPublish>
                     <excludeArtifacts>
                         <artifact>shedlock-springboot-future-test</artifact>
                         <artifact>shedlock-springboot-kotlin-test</artifact>
@@ -181,7 +202,19 @@
                     </excludeArtifacts>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.2</version>
+            </plugin>
         </plugins>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.extensions</groupId>
+                <artifactId>maven-build-cache-extension</artifactId>
+                <version>1.2.1</version>
+            </extension>
+        </extensions>
     </build>
 
     <licenses>
@@ -190,6 +223,27 @@
             <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>1.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>6.0.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <profiles>
         <profile>
@@ -205,7 +259,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.7</version>
+                        <version>3.2.8</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -219,7 +273,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>versions-maven-plugin</artifactId>
-                        <version>2.18.0</version>
+                        <version>2.19.1</version>
                     </plugin>
                 </plugins>
             </build>
@@ -238,6 +292,51 @@
                             <argLine>--illegal-access=permit</argLine>
                             <forkCount>${fork.count}</forkCount>
                             <argLine>-Xmx512m</argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <!-- IntelliJ and ErrorProne don't play well together -->
+            <id>error-prone</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.14.1</version>
+                        <configuration>
+                            <release>${jdk.version}</release>
+                            <fork>true</fork>
+                            <compilerArgs>
+                                <arg>-Werror</arg>
+                                <arg>-XDcompilePolicy=simple</arg>
+                                <arg>--should-stop=ifError=FLOW</arg>
+                                <arg>-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=net.javacrumbs.jsonunit -Xep:BadImport:OFF -Xep:ImmutableEnumChecker:OFF</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>com.google.errorprone</groupId>
+                                    <artifactId>error_prone_core</artifactId>
+                                    <version>2.44.0</version>
+                                </path>
+                                <path>
+                                    <groupId>com.uber.nullaway</groupId>
+                                    <artifactId>nullaway</artifactId>
+                                    <version>0.12.12</version>
+                                </path>
+                            </annotationProcessorPaths>
                         </configuration>
                     </plugin>
                 </plugins>

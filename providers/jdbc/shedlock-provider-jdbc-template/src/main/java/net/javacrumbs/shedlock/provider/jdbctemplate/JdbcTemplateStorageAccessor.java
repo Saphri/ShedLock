@@ -14,17 +14,19 @@
 package net.javacrumbs.shedlock.provider.jdbctemplate;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableMap;
+import static net.javacrumbs.shedlock.provider.sql.internal.CalendarUtils.toCalendar;
 
 import java.util.Map;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider.Configuration;
+import net.javacrumbs.shedlock.provider.sql.SqlStatementsSource;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import net.javacrumbs.shedlock.support.LockException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.ConcurrencyFailureException;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.BadSqlGrammarException;
-import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -38,16 +40,17 @@ class JdbcTemplateStorageAccessor extends AbstractStorageAccessor {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
     private final Configuration configuration;
-    private SqlStatementsSource sqlStatementsSource;
 
-    JdbcTemplateStorageAccessor(@NonNull Configuration configuration) {
+    private @Nullable SqlStatementsSource sqlStatementsSource;
+
+    JdbcTemplateStorageAccessor(Configuration configuration) {
         requireNonNull(configuration, "configuration can not be null");
         this.jdbcTemplate = new NamedParameterJdbcTemplate(configuration.getJdbcTemplate());
         this.configuration = configuration;
         PlatformTransactionManager transactionManager = configuration.getTransactionManager() != null
                 ? configuration.getTransactionManager()
                 : new DataSourceTransactionManager(
-                        configuration.getJdbcTemplate().getDataSource());
+                        requireNonNull(configuration.getJdbcTemplate().getDataSource(), "DataSource can't be null"));
 
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -58,41 +61,35 @@ class JdbcTemplateStorageAccessor extends AbstractStorageAccessor {
     }
 
     @Override
-    public boolean insertRecord(@NonNull LockConfiguration lockConfiguration) {
+    public boolean insertRecord(LockConfiguration lockConfiguration) {
         try {
             String sql = sqlStatementsSource().getInsertStatement();
             return execute(sql, lockConfiguration);
         } catch (DuplicateKeyException | ConcurrencyFailureException | TransactionSystemException e) {
             logger.debug("Duplicate key", e);
             return false;
-        } catch (DataIntegrityViolationException | BadSqlGrammarException | UncategorizedSQLException e) {
-            if (configuration.isThrowUnexpectedException()) {
-                throw e;
-            }
+        } catch (DataAccessException e) {
             logger.error("Unexpected exception", e);
-            return false;
+            throw new LockException(e);
         }
     }
 
     @Override
-    public boolean updateRecord(@NonNull LockConfiguration lockConfiguration) {
+    public boolean updateRecord(LockConfiguration lockConfiguration) {
         String sql = sqlStatementsSource().getUpdateStatement();
         try {
             return execute(sql, lockConfiguration);
-        } catch (ConcurrencyFailureException e) {
+        } catch (DuplicateKeyException | ConcurrencyFailureException | TransactionSystemException e) {
             logger.debug("Serialization exception", e);
             return false;
-        } catch (DataIntegrityViolationException | TransactionSystemException | UncategorizedSQLException e) {
-            if (configuration.isThrowUnexpectedException()) {
-                throw e;
-            }
+        } catch (DataAccessException e) {
             logger.error("Unexpected exception", e);
-            return false;
+            throw new LockException(e);
         }
     }
 
     @Override
-    public boolean extend(@NonNull LockConfiguration lockConfiguration) {
+    public boolean extend(LockConfiguration lockConfiguration) {
         String sql = sqlStatementsSource().getExtendStatement();
 
         logger.debug("Extending lock={} until={}", lockConfiguration.getName(), lockConfiguration.getLockAtMostUntil());
@@ -100,7 +97,7 @@ class JdbcTemplateStorageAccessor extends AbstractStorageAccessor {
     }
 
     @Override
-    public void unlock(@NonNull LockConfiguration lockConfiguration) {
+    public void unlock(LockConfiguration lockConfiguration) {
         for (int i = 0; i < 10; i++) {
             try {
                 doUnlock(lockConfiguration);
@@ -122,9 +119,17 @@ class JdbcTemplateStorageAccessor extends AbstractStorageAccessor {
         return transactionTemplate.execute(status -> jdbcTemplate.update(sql, params(lockConfiguration)) > 0);
     }
 
-    @NonNull
-    private Map<String, Object> params(@NonNull LockConfiguration lockConfiguration) {
-        return sqlStatementsSource().params(lockConfiguration);
+    private Map<String, Object> params(LockConfiguration lockConfiguration) {
+        return sqlStatementsSource().params(lockConfiguration).entrySet().stream()
+                .map(e -> {
+                    Object value = e.getValue();
+                    if (value instanceof java.time.ZonedDateTime zdt) {
+                        return Map.entry(e.getKey(), toCalendar(zdt));
+                    } else {
+                        return e;
+                    }
+                })
+                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private SqlStatementsSource sqlStatementsSource() {

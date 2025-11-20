@@ -30,8 +30,9 @@ import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.provider.cassandra.CassandraLockProvider.Configuration;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
+import net.javacrumbs.shedlock.support.LockException;
 import net.javacrumbs.shedlock.support.Utils;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /** StorageAccessor for cassandra. */
 /*
@@ -42,16 +43,20 @@ import net.javacrumbs.shedlock.support.annotation.NonNull;
 class CassandraStorageAccessor extends AbstractStorageAccessor {
     private final String hostname;
     private final CqlIdentifier table;
-    private final CqlIdentifier keyspace;
+
+    private final @Nullable CqlIdentifier keyspace;
+
     private final String lockName;
     private final String lockUntil;
     private final String lockedAt;
     private final String lockedBy;
     private final CqlSession cqlSession;
-    private final ConsistencyLevel consistencyLevel;
-    private final ConsistencyLevel serialConsistencyLevel;
 
-    CassandraStorageAccessor(@NonNull Configuration configuration) {
+    private final @Nullable ConsistencyLevel consistencyLevel;
+
+    private final @Nullable ConsistencyLevel serialConsistencyLevel;
+
+    CassandraStorageAccessor(Configuration configuration) {
         requireNonNull(configuration, "configuration can not be null");
         this.hostname = Utils.getHostname();
         this.table = configuration.getTable();
@@ -66,7 +71,7 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
     }
 
     @Override
-    public boolean insertRecord(@NonNull LockConfiguration lockConfiguration) {
+    public boolean insertRecord(LockConfiguration lockConfiguration) {
         if (find(lockConfiguration.getName()).isPresent()) {
             return false;
         }
@@ -75,12 +80,12 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
             return insert(lockConfiguration.getName(), lockConfiguration.getLockAtMostUntil());
         } catch (QueryExecutionException e) {
             logger.warn("Error on insert", e);
-            return false;
+            throw new LockException("Error on insert", e);
         }
     }
 
     @Override
-    public boolean updateRecord(@NonNull LockConfiguration lockConfiguration) {
+    public boolean updateRecord(LockConfiguration lockConfiguration) {
         Optional<Lock> lock = find(lockConfiguration.getName());
         if (lock.isEmpty() || lock.get().lockUntil().isAfter(ClockProvider.now())) {
             return false;
@@ -90,17 +95,17 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
             return update(lockConfiguration.getName(), lockConfiguration.getLockAtMostUntil());
         } catch (QueryExecutionException e) {
             logger.warn("Error on update", e);
-            return false;
+            throw new LockException("Error on update", e);
         }
     }
 
     @Override
-    public void unlock(@NonNull LockConfiguration lockConfiguration) {
+    public void unlock(LockConfiguration lockConfiguration) {
         updateUntil(lockConfiguration.getName(), lockConfiguration.getUnlockTime());
     }
 
     @Override
-    public boolean extend(@NonNull LockConfiguration lockConfiguration) {
+    public boolean extend(LockConfiguration lockConfiguration) {
         Optional<Lock> lock = find(lockConfiguration.getName());
         if (lock.isEmpty()
                 || lock.get().lockUntil().isBefore(ClockProvider.now())
@@ -115,8 +120,7 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
     /**
      * Find existing row by primary key lock.name
      *
-     * @param name
-     *            lock name
+     * @param name lock name
      * @return optional lock row or empty
      */
     Optional<Lock> find(String name) {
@@ -142,10 +146,8 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
     /**
      * Insert new lock row
      *
-     * @param name
-     *            lock name
-     * @param until
-     *            new until instant value
+     * @param name lock name
+     * @param until new until instant value
      */
     private boolean insert(String name, Instant until) {
         return execute(QueryBuilder.insertInto(keyspace, table)
@@ -160,10 +162,8 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
     /**
      * Update existing lock row
      *
-     * @param name
-     *            lock name
-     * @param until
-     *            new until instant value
+     * @param name lock name
+     * @param until new until instant value
      */
     private boolean update(String name, Instant until) {
         return execute(QueryBuilder.update(keyspace, table)
@@ -180,10 +180,8 @@ class CassandraStorageAccessor extends AbstractStorageAccessor {
     /**
      * Updates lock.until field where lockConfiguration.name
      *
-     * @param name
-     *            lock name
-     * @param until
-     *            new until instant value
+     * @param name lock name
+     * @param until new until instant value
      */
     private boolean updateUntil(String name, Instant until) {
         return execute(QueryBuilder.update(keyspace, table)

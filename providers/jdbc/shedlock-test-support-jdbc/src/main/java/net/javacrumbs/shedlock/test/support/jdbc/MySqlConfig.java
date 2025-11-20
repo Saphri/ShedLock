@@ -13,15 +13,11 @@
  */
 package net.javacrumbs.shedlock.test.support.jdbc;
 
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
-public class MySqlConfig extends AbstractContainerBasedDbConfig<MySqlConfig.MyMySQLContainer> {
+public class MySqlConfig extends AbstractContainerBasedDbConfig<MySQLContainer> {
     public MySqlConfig() {
-        super(new MyMySQLContainer()
-                .withDatabaseName(TEST_SCHEMA_NAME)
-                .withUsername("SA")
-                .withPassword("pass")
-                .withCommand("--default-authentication-plugin=mysql_native_password"));
+        super(new MySQLContainer("mysql:lts").withDatabaseName(TEST_SCHEMA_NAME));
     }
 
     @Override
@@ -34,9 +30,9 @@ public class MySqlConfig extends AbstractContainerBasedDbConfig<MySqlConfig.MyMy
         return "UTC_TIMESTAMP(3)";
     }
 
-    static class MyMySQLContainer extends MySQLContainer<MyMySQLContainer> {
-        MyMySQLContainer() {
-            super("mysql:8.2");
-        }
+    @Override
+    public boolean failIfKeyNameTooLong(boolean dbTime) {
+        // We use INSERT IGNORE which does not fail on key too long
+        return !dbTime;
     }
 }

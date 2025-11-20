@@ -13,9 +13,11 @@
  */
 package net.javacrumbs.shedlock.spring.aop;
 
+import static java.util.Objects.requireNonNull;
+
 import java.time.Duration;
 import net.javacrumbs.shedlock.spring.ExtendedLockConfigurationExtractor;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -30,11 +32,9 @@ class LockConfigurationExtractorConfiguration extends AbstractLockConfiguration
         implements EmbeddedValueResolverAware, BeanFactoryAware {
     private final StringToDurationConverter durationConverter = StringToDurationConverter.INSTANCE;
 
-    @Nullable
-    private StringValueResolver resolver;
+    private @Nullable StringValueResolver resolver;
 
-    @Nullable
-    private BeanFactory beanFactory;
+    private @Nullable BeanFactory beanFactory;
 
     @Bean
     ExtendedLockConfigurationExtractor lockConfigurationExtractor() {
@@ -63,11 +63,15 @@ class LockConfigurationExtractorConfiguration extends AbstractLockConfiguration
     }
 
     private Duration toDuration(String string) {
-        return durationConverter.convert(resolver.resolveStringValue(string));
+        String resolved = resolver != null ? resolver.resolveStringValue(string) : string;
+        if (resolved == null) {
+            resolved = string;
+        }
+        return durationConverter.convert(resolved);
     }
 
     protected String getStringFromAnnotation(String name) {
-        return annotationAttributes.getString(name);
+        return requireNonNull(annotationAttributes).getString(name);
     }
 
     @Override

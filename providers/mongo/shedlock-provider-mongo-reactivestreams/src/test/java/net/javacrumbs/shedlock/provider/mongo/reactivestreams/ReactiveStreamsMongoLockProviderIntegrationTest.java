@@ -14,6 +14,7 @@
 package net.javacrumbs.shedlock.provider.mongo.reactivestreams;
 
 import static com.mongodb.client.model.Filters.eq;
+import static java.util.Objects.requireNonNull;
 import static net.javacrumbs.shedlock.provider.mongo.reactivestreams.ReactiveStreamsMongoLockProvider.DEFAULT_SHEDLOCK_COLLECTION_NAME;
 import static net.javacrumbs.shedlock.provider.mongo.reactivestreams.ReactiveStreamsMongoLockProvider.ID;
 import static net.javacrumbs.shedlock.provider.mongo.reactivestreams.ReactiveStreamsMongoLockProvider.LOCKED_AT;
@@ -36,16 +37,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @Testcontainers
+@SuppressWarnings("JavaUtilDate")
 public class ReactiveStreamsMongoLockProviderIntegrationTest extends AbstractExtensibleLockProviderIntegrationTest {
     private static final String DB_NAME = "db";
 
     @Container
-    public static final MongoDBContainer container = new MongoDBContainer("mongo:4.4.29");
+    public static final MongoDBContainer container = new MongoDBContainer("mongo:6");
 
     private static MongoClient mongo;
 
@@ -72,8 +74,8 @@ public class ReactiveStreamsMongoLockProviderIntegrationTest extends AbstractExt
     @Override
     protected void assertUnlocked(String lockName) {
         Document lockDocument = getLockDocument(lockName);
-        assertThat((Date) lockDocument.get(LOCK_UNTIL)).isBeforeOrEqualTo(now());
-        assertThat((Date) lockDocument.get(LOCKED_AT)).isBeforeOrEqualTo(now());
+        assertThat((Date) requireNonNull(lockDocument.get(LOCK_UNTIL))).isBeforeOrEqualTo(now());
+        assertThat((Date) requireNonNull(lockDocument.get(LOCKED_AT))).isBeforeOrEqualTo(now());
         assertThat((String) lockDocument.get(LOCKED_BY)).isNotEmpty();
     }
 
@@ -84,8 +86,8 @@ public class ReactiveStreamsMongoLockProviderIntegrationTest extends AbstractExt
     @Override
     protected void assertLocked(String lockName) {
         Document lockDocument = getLockDocument(lockName);
-        assertThat((Date) lockDocument.get(LOCK_UNTIL)).isAfter(now());
-        assertThat((Date) lockDocument.get(LOCKED_AT)).isBeforeOrEqualTo(now());
+        assertThat((Date) requireNonNull(lockDocument.get(LOCK_UNTIL))).isAfter(now());
+        assertThat((Date) requireNonNull(lockDocument.get(LOCKED_AT))).isBeforeOrEqualTo(now());
         assertThat((String) lockDocument.get(LOCKED_BY)).isNotEmpty();
     }
 
@@ -94,7 +96,7 @@ public class ReactiveStreamsMongoLockProviderIntegrationTest extends AbstractExt
     }
 
     private Document getLockDocument(String lockName) {
-        return execute(getLockCollection().find(eq(ID, lockName)).first());
+        return requireNonNull(execute(getLockCollection().find(eq(ID, lockName)).first()));
     }
 
     @Test
@@ -103,7 +105,7 @@ public class ReactiveStreamsMongoLockProviderIntegrationTest extends AbstractExt
         assertThat(provider.lock(lockConfig(LOCK_NAME1))).isNotEmpty();
         assertLocked(LOCK_NAME1);
 
-        DeleteResult result = execute(getLockCollection().deleteOne(eq(ID, LOCK_NAME1)));
+        DeleteResult result = requireNonNull(execute(getLockCollection().deleteOne(eq(ID, LOCK_NAME1))));
 
         assumeThat(result.getDeletedCount()).isEqualTo(1);
 

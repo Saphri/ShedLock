@@ -5,7 +5,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.cloud.spanner.DatabaseClient;
 import net.javacrumbs.shedlock.support.StorageBasedLockProvider;
 import net.javacrumbs.shedlock.support.Utils;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A lock provider for Google Cloud Spanner.
@@ -18,7 +18,7 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
      *
      * @param databaseClient the client for interacting with Google Cloud Spanner.
      */
-    public SpannerLockProvider(@NonNull DatabaseClient databaseClient) {
+    public SpannerLockProvider(DatabaseClient databaseClient) {
         this(Configuration.builder().withDatabaseClient(databaseClient).build());
     }
 
@@ -27,7 +27,7 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
      *
      * @param configuration configuration for the provider.
      */
-    public SpannerLockProvider(@NonNull Configuration configuration) {
+    public SpannerLockProvider(Configuration configuration) {
         super(new SpannerStorageAccessor(configuration));
     }
 
@@ -45,10 +45,10 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
          *
          * @param builder the {@code Builder} object.
          */
-        private Configuration(@NonNull Builder builder) {
+        private Configuration(Builder builder) {
             databaseClient = requireNonNull(builder.databaseClient, "databaseClient must be set");
             tableConfiguration = builder.tableConfiguration;
-            hostname = builder.hostName;
+            hostname = builder.hostname;
         }
 
         public static Builder builder() {
@@ -72,10 +72,10 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
          * A default {@link TableConfiguration} and host name are used if not explicitly specified.
          */
         public static final class Builder {
-            private DatabaseClient databaseClient;
+            private @Nullable DatabaseClient databaseClient;
 
             // Default host name is obtained from the Utils class if not specified.
-            private String hostName = Utils.getHostname();
+            private String hostname = Utils.getHostname();
 
             // Default table configuration if not specified by the user of the builder.
             private TableConfiguration tableConfiguration = TableConfiguration.builder()
@@ -93,8 +93,8 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
                 return this;
             }
 
-            public Builder withHostName(String hostName) {
-                this.hostName = hostName;
+            public Builder withHostName(String hostname) {
+                this.hostname = hostname;
                 return this;
             }
 
@@ -132,7 +132,7 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
          *
          * @param builder the {@code Builder} for the table configuration.
          */
-        private TableConfiguration(@NonNull Builder builder) {
+        private TableConfiguration(Builder builder) {
             tableName = requireNonNull(builder.tableName, "tableName must be set");
             lockName = requireNonNull(builder.lockName, "lockName must be set");
             lockUntil = requireNonNull(builder.lockUntil, "lockUntil must be set");
@@ -168,11 +168,11 @@ public class SpannerLockProvider extends StorageBasedLockProvider {
          * Builder for creating {@code TableConfiguration} instances.
          */
         public static final class Builder {
-            private String tableName;
-            private String lockName;
-            private String lockUntil;
-            private String lockedAt;
-            private String lockedBy;
+            private @Nullable String tableName;
+            private @Nullable String lockName;
+            private @Nullable String lockUntil;
+            private @Nullable String lockedAt;
+            private @Nullable String lockedBy;
 
             private Builder() {}
 

@@ -26,8 +26,8 @@ import java.time.Instant;
 import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
+import net.javacrumbs.shedlock.support.LockException;
 import net.javacrumbs.shedlock.support.StorageBasedLockProvider;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
 
 /**
  * Distributed lock using CouchbaseDB
@@ -88,7 +88,7 @@ public class CouchbaseLockProvider extends StorageBasedLockProvider {
         }
 
         @Override
-        public boolean insertRecord(@NonNull LockConfiguration lockConfiguration) {
+        public boolean insertRecord(LockConfiguration lockConfiguration) {
             JsonObject content = JsonObject.create()
                     .put(LOCK_NAME, lockConfiguration.getName())
                     .put(LOCK_UNTIL, toIsoString(lockConfiguration.getLockAtMostUntil()))
@@ -99,6 +99,8 @@ public class CouchbaseLockProvider extends StorageBasedLockProvider {
                 collection.insert(lockConfiguration.getName(), content);
             } catch (DocumentExistsException e) {
                 return false;
+            } catch (Exception e) {
+                throw new LockException("Error on insert", e);
             }
             return true;
         }
@@ -108,7 +110,7 @@ public class CouchbaseLockProvider extends StorageBasedLockProvider {
         }
 
         @Override
-        public boolean updateRecord(@NonNull LockConfiguration lockConfiguration) {
+        public boolean updateRecord(LockConfiguration lockConfiguration) {
             GetResult result = collection.get(lockConfiguration.getName());
             JsonObject document = result.contentAsObject();
 
@@ -129,12 +131,14 @@ public class CouchbaseLockProvider extends StorageBasedLockProvider {
                         ReplaceOptions.replaceOptions().cas(result.cas()));
             } catch (CasMismatchException e) {
                 return false;
+            } catch (Exception e) {
+                throw new LockException("Error on update", e);
             }
             return true;
         }
 
         @Override
-        public boolean extend(@NonNull LockConfiguration lockConfiguration) {
+        public boolean extend(LockConfiguration lockConfiguration) {
             GetResult result = collection.get(lockConfiguration.getName());
             JsonObject document = result.contentAsObject();
 
@@ -158,7 +162,7 @@ public class CouchbaseLockProvider extends StorageBasedLockProvider {
         }
 
         @Override
-        public void unlock(@NonNull LockConfiguration lockConfiguration) {
+        public void unlock(LockConfiguration lockConfiguration) {
             GetResult result = collection.get(lockConfiguration.getName());
             JsonObject document = result.contentAsObject();
 

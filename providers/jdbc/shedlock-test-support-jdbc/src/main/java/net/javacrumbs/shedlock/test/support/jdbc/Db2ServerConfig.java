@@ -15,16 +15,19 @@ package net.javacrumbs.shedlock.test.support.jdbc;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.Db2Container;
+import org.testcontainers.db2.Db2Container;
+import org.testcontainers.utility.DockerImageName;
 
 public final class Db2ServerConfig extends AbstractDbConfig {
 
+    @SuppressWarnings("NullAway.Init")
     private Db2Container db2;
+
     private static final Logger logger = LoggerFactory.getLogger(Db2ServerConfig.class);
 
     @Override
     protected void doStartDb() {
-        db2 = new Db2Container()
+        db2 = new Db2Container(DockerImageName.parse("icr.io/db2_community/db2"))
                 .acceptLicense()
                 .withLogConsumer(outputFrame -> logger.debug(outputFrame.getUtf8String()));
         db2.start();
@@ -48,6 +51,21 @@ public final class Db2ServerConfig extends AbstractDbConfig {
     @Override
     public String getPassword() {
         return db2.getPassword();
+    }
+
+    @Override
+    public String getHost() {
+        return db2.getHost();
+    }
+
+    @Override
+    public int getPort() {
+        return db2.getFirstMappedPort();
+    }
+
+    @Override
+    public String getDatabaseName() {
+        return db2.getDatabaseName();
     }
 
     @Override

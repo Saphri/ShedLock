@@ -17,10 +17,11 @@ import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
 import net.javacrumbs.shedlock.support.Utils;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DatastoreStorageAccessor extends AbstractStorageAccessor {
+class DatastoreStorageAccessor extends AbstractStorageAccessor {
     private static final Logger log = LoggerFactory.getLogger(DatastoreStorageAccessor.class);
 
     private final Datastore datastore;
@@ -143,21 +144,24 @@ public class DatastoreStorageAccessor extends AbstractStorageAccessor {
         }
     }
 
-    private static String nullableString(Entity entity, String property) {
+    private static @Nullable String nullableString(Entity entity, String property) {
         return entity.contains(property) ? entity.getString(property) : null;
     }
 
-    private static Instant nullableTimestamp(Entity entity, String property) {
+    private static @Nullable Instant nullableTimestamp(Entity entity, String property) {
         return entity.contains(property) ? toInstant(entity.getTimestamp(property)) : null;
     }
 
     private static Timestamp fromInstant(Instant instant) {
-        return Timestamp.of(java.sql.Timestamp.from(requireNonNull(instant)));
+        requireNonNull(instant);
+        return Timestamp.ofTimeSecondsAndNanos(instant.getEpochSecond(), instant.getNano());
     }
 
     private static Instant toInstant(Timestamp timestamp) {
-        return requireNonNull(timestamp).toSqlTimestamp().toInstant();
+        requireNonNull(timestamp);
+        return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
     }
 
-    public record Lock(String name, Instant lockedAt, Instant lockedUntil, String lockedBy) {}
+    public record Lock(
+            String name, @Nullable Instant lockedAt, @Nullable Instant lockedUntil, @Nullable String lockedBy) {}
 }

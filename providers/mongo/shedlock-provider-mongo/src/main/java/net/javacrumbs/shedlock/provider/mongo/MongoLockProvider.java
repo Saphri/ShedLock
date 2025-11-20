@@ -21,6 +21,8 @@ import static com.mongodb.client.model.Updates.combine;
 import static com.mongodb.client.model.Updates.set;
 
 import com.mongodb.MongoServerException;
+import com.mongodb.ReadConcern;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
@@ -31,6 +33,7 @@ import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.ExtensibleLockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.SimpleLock;
+import net.javacrumbs.shedlock.support.LockException;
 import net.javacrumbs.shedlock.support.Utils;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -77,11 +80,14 @@ public class MongoLockProvider implements ExtensibleLockProvider {
 
     /** Uses Mongo to coordinate locks */
     public MongoLockProvider(MongoDatabase mongoDatabase) {
-        this(mongoDatabase.getCollection(DEFAULT_SHEDLOCK_COLLECTION_NAME));
+        this(mongoDatabase
+                .getCollection(DEFAULT_SHEDLOCK_COLLECTION_NAME)
+                .withWriteConcern(WriteConcern.MAJORITY)
+                .withReadConcern(ReadConcern.MAJORITY));
     }
 
     /**
-     * Uses Mongo to coordinate locks
+     * Uses Mongo to coordinate locks. Please, make sure that the collection has WriteConcern.MAJORITY set.
      *
      * @param collection
      *            Mongo collection to be used
@@ -115,7 +121,7 @@ public class MongoLockProvider implements ExtensibleLockProvider {
                 // This means there was a lock with matching ID with lockUntil > now.
                 return Optional.empty();
             } else {
-                throw e;
+                throw new LockException(e);
             }
         }
     }

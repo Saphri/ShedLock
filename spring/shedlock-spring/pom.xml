@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-spring</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <dependencies>
         <dependency>
@@ -25,13 +25,12 @@
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjrt</artifactId>
-            <version>1.9.24</version>
+            <version>1.9.25</version>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>${junit.ver}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -70,15 +69,11 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
+                <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>
-                                net.javacrumbs.shedlock.spring
-                            </Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
+                    <argLine>
+                        --add-opens net.javacrumbs.shedlock.spring/net.javacrumbs.shedlock.spring.aop.multiplelockproviders=spring.core,spring.beans,spring.context  --add-opens net.javacrumbs.shedlock.spring/net.javacrumbs.shedlock.spring.it=spring.core,spring.beans,spring.context  --add-opens net.javacrumbs.shedlock.spring/net.javacrumbs.shedlock.spring.proxytest=spring.core,spring.beans,spring.context
+                    </argLine>
                 </configuration>
             </plugin>
         </plugins>

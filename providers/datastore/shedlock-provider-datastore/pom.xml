@@ -4,15 +4,15 @@
     <parent>
         <groupId>net.javacrumbs.shedlock</groupId>
         <artifactId>shedlock-parent</artifactId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
 
     <artifactId>shedlock-provider-datastore</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <properties>
-        <datastore.ver>2.28.2</datastore.ver>
+        <datastore.ver>2.33.0</datastore.ver>
     </properties>
 
     <dependencies>
@@ -29,14 +29,14 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${test-containers.ver}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>gcloud</artifactId>
+            <artifactId>testcontainers-gcloud</artifactId>
             <version>${test-containers.ver}</version>
             <scope>test</scope>
         </dependency>
@@ -71,6 +71,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
+                            <!-- Not migrated to JPMS as datastore is a filename-based automodule -->
                             <Automatic-Module-Name>
                                 net.javacrumbs.shedlock.provider.datastore
                             </Automatic-Module-Name>

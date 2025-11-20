@@ -26,7 +26,7 @@ import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.spring.ExtendedLockConfigurationExtractor;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
@@ -58,11 +58,9 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
     private final Duration defaultLockAtMostFor;
     private final Duration defaultLockAtLeastFor;
 
-    @Nullable
-    private final StringValueResolver embeddedValueResolver;
+    private final @Nullable StringValueResolver embeddedValueResolver;
 
-    @Nullable
-    private final BeanFactory beanFactory;
+    private final @Nullable BeanFactory beanFactory;
 
     private final StandardEvaluationContext originalEvaluationContext = new StandardEvaluationContext();
 
@@ -104,22 +102,24 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
             return getLockConfiguration(
                     scheduledMethodRunnable.getTarget(), scheduledMethodRunnable.getMethod(), new Object[] {});
         } else {
-            logger.debug("Unknown task type " + task);
+            logger.debug("Unknown task type {}", task);
         }
         return Optional.empty();
     }
 
     @Override
-    public Optional<LockConfiguration> getLockConfiguration(Object target, Method method, Object[] parameterValues) {
+    public Optional<LockConfiguration> getLockConfiguration(
+            @Nullable Object target, Method method, @Nullable Object[] parameterValues) {
         AnnotationData annotation = findAnnotation(target, method);
-        if (shouldLock(annotation)) {
+        if (annotation != null) {
             return Optional.of(getLockConfiguration(annotation, method, parameterValues));
         } else {
             return Optional.empty();
         }
     }
 
-    private LockConfiguration getLockConfiguration(AnnotationData annotation, Method method, Object[] parameterValues) {
+    private LockConfiguration getLockConfiguration(
+            AnnotationData annotation, Method method, @Nullable Object[] parameterValues) {
         return new LockConfiguration(
                 ClockProvider.now(),
                 getName(annotation, method, parameterValues),
@@ -127,16 +127,17 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
                 getLockAtLeastFor(annotation));
     }
 
-    private String getName(AnnotationData annotation, Method method, Object[] parameterValues) {
+    private String getName(AnnotationData annotation, Method method, @Nullable Object[] parameterValues) {
         String name = parseSpEL(annotation.name(), method, parameterValues);
         if (embeddedValueResolver != null) {
-            return embeddedValueResolver.resolveStringValue(name);
+            String resolved = embeddedValueResolver.resolveStringValue(name);
+            return resolved != null ? resolved : name;
         } else {
             return name;
         }
     }
 
-    private String parseSpEL(String name, Method method, Object[] parameterValues) {
+    private String parseSpEL(String name, Method method, @Nullable Object[] parameterValues) {
         return getEvaluationContext(method, parameterValues)
                 .map(evaluationContext -> EXPRESSION_PARSER
                         .parseExpression(name, PARSER_CONTEXT)
@@ -144,7 +145,7 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
                 .orElse(name);
     }
 
-    private Optional<EvaluationContext> getEvaluationContext(Method method, Object[] parameterValues) {
+    private Optional<EvaluationContext> getEvaluationContext(Method method, @Nullable Object[] parameterValues) {
         // Only applying it when the method has parameters. The while code is pretty fragile, let's hope that
         // most of the users do not parametrize their scheduled methods.
         // We need this as embeddedValueResolver does not support parameters. Inspired by CacheEvaluationContextFactory.
@@ -183,8 +184,9 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
                 stringValueFromAnnotation = embeddedValueResolver.resolveStringValue(stringValueFromAnnotation);
             }
             try {
+                requireNonNull(stringValueFromAnnotation, "Invalid " + paramName + " value");
                 Duration result = durationConverter.convert(stringValueFromAnnotation);
-                if (result.isNegative()) {
+                if (result == null || result.isNegative()) {
                     throw new IllegalArgumentException("Invalid " + paramName + " value \"" + stringValueFromAnnotation
                             + "\" - cannot set negative duration");
                 }
@@ -198,8 +200,7 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
         }
     }
 
-    @Nullable
-    static AnnotationData findAnnotation(Object target, Method method) {
+    static @Nullable AnnotationData findAnnotation(@Nullable Object target, Method method) {
         SchedulerLock annotation = findAnnotation(target, method, SchedulerLock.class);
         if (annotation != null) {
             return new AnnotationData(
@@ -208,12 +209,12 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
         return null;
     }
 
-    @Nullable
-    static <A extends Annotation> A findAnnotation(Object target, Method method, Class<A> annotationType) {
+    static <A extends Annotation> @Nullable A findAnnotation(
+            @Nullable Object target, Method method, Class<A> annotationType) {
         A annotation = AnnotatedElementUtils.getMergedAnnotation(method, annotationType);
         if (annotation != null) {
             return annotation;
-        } else {
+        } else if (target != null) {
             // Try to find annotation on proxied class
             Class<?> targetClass = AopUtils.getTargetClass(target);
             try {
@@ -222,11 +223,9 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
             } catch (NoSuchMethodException e) {
                 return null;
             }
+        } else {
+            return null;
         }
-    }
-
-    private boolean shouldLock(@Nullable AnnotationData annotation) {
-        return annotation != null;
     }
 
     record AnnotationData(
@@ -242,19 +241,16 @@ class SpringLockConfigurationExtractor implements ExtendedLockConfigurationExtra
      */
     private static class SimpleParameterNameDiscoverer implements ParameterNameDiscoverer {
         @Override
-        @Nullable
-        public String[] getParameterNames(Method method) {
+        public @Nullable String @Nullable [] getParameterNames(Method method) {
             return getParameterNames(method.getParameters());
         }
 
         @Override
-        @Nullable
-        public String[] getParameterNames(Constructor<?> ctor) {
+        public @Nullable String @Nullable [] getParameterNames(Constructor<?> ctor) {
             return getParameterNames(ctor.getParameters());
         }
 
-        @Nullable
-        private String[] getParameterNames(Parameter[] parameters) {
+        private String @Nullable [] getParameterNames(Parameter[] parameters) {
             String[] parameterNames = new String[parameters.length];
             for (int i = 0; i < parameters.length; i++) {
                 Parameter param = parameters[i];

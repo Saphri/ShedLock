@@ -14,18 +14,19 @@
 package net.javacrumbs.shedlock.provider.opensearch.java;
 
 import static java.time.Instant.now;
-import static java.time.Instant.ofEpochMilli;
+import static java.util.Objects.requireNonNull;
 import static net.javacrumbs.shedlock.provider.opensearch.java.OpenSearchLockProvider.LOCKED_AT;
 import static net.javacrumbs.shedlock.provider.opensearch.java.OpenSearchLockProvider.LOCKED_BY;
 import static net.javacrumbs.shedlock.provider.opensearch.java.OpenSearchLockProvider.LOCK_UNTIL;
 import static net.javacrumbs.shedlock.provider.opensearch.java.OpenSearchLockProvider.NAME;
 import static net.javacrumbs.shedlock.provider.opensearch.java.OpenSearchLockProvider.SCHEDLOCK_DEFAULT_INDEX;
+import static net.javacrumbs.shedlock.test.support.DockerCleaner.removeImageInCi;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.test.support.AbstractLockProviderIntegrationTest;
@@ -36,13 +37,14 @@ import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpHost;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.core.GetRequest;
 import org.opensearch.client.opensearch.core.GetResponse;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
-import org.opensearch.testcontainers.OpensearchContainer;
+import org.opensearch.testcontainers.OpenSearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -50,9 +52,11 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers
 public class OpenSearchLockProviderTest extends AbstractLockProviderIntegrationTest {
 
+    private static final String DOCKER_IMAGE = "opensearchproject/opensearch:2";
+
     @Container
-    private static final OpensearchContainer<?> container =
-            new OpensearchContainer<>(DockerImageName.parse("opensearchproject/opensearch:2"));
+    private static final OpenSearchContainer<?> container =
+            new OpenSearchContainer<>(DockerImageName.parse(DOCKER_IMAGE));
 
     private OpenSearchClient openSearchClient;
     private OpenSearchLockProvider lockProvider;
@@ -61,6 +65,11 @@ public class OpenSearchLockProviderTest extends AbstractLockProviderIntegrationT
     public void setUp() {
         openSearchClient = openSearchClient();
         lockProvider = new OpenSearchLockProvider(openSearchClient);
+    }
+
+    @AfterAll
+    public static void removeImage() {
+        removeImageInCi(DOCKER_IMAGE);
     }
 
     @Override
@@ -78,13 +87,17 @@ public class OpenSearchLockProviderTest extends AbstractLockProviderIntegrationT
             GetResponse<Object> objectGetResponse = openSearchClient.get(getRequest, Object.class);
             Map<String, Object> sourceData = (Map<String, Object>) objectGetResponse.source();
             assert sourceData != null;
-            assertThat(new Date((Long) sourceData.get(LOCK_UNTIL))).isBeforeOrEqualTo(now());
-            assertThat(new Date((Long) sourceData.get(LOCKED_AT))).isBeforeOrEqualTo(now());
+            assertThat(getInstant(sourceData, LOCK_UNTIL)).isBeforeOrEqualTo(now());
+            assertThat(getInstant(sourceData, LOCKED_AT)).isBeforeOrEqualTo(now());
             assertThat((String) sourceData.get(LOCKED_BY)).isNotBlank();
             assertThat((String) sourceData.get(NAME)).isEqualTo(lockName);
         } catch (IOException e) {
             fail("Call to embedded OS failed.");
         }
+    }
+
+    private static Instant getInstant(Map<String, Object> sourceData, String lockUntil) {
+        return Instant.ofEpochMilli((Long) requireNonNull(sourceData.get(lockUntil)));
     }
 
     @Override
@@ -98,8 +111,8 @@ public class OpenSearchLockProviderTest extends AbstractLockProviderIntegrationT
             Map<String, Object> sourceData = (Map<String, Object>) getResponse.source();
 
             assert sourceData != null;
-            assertThat(ofEpochMilli((Long) sourceData.get(LOCK_UNTIL))).isAfter(now());
-            assertThat(ofEpochMilli((Long) sourceData.get(LOCKED_AT))).isBeforeOrEqualTo(now());
+            assertThat(getInstant(sourceData, LOCK_UNTIL)).isAfter(now());
+            assertThat(getInstant(sourceData, LOCKED_AT)).isBeforeOrEqualTo(now());
             assertThat((String) sourceData.get(LOCKED_BY)).isNotBlank();
             assertThat((String) sourceData.get(NAME)).isEqualTo(lockName);
         } catch (IOException e) {

@@ -16,7 +16,7 @@ package net.javacrumbs.shedlock.provider.mongo.reactivestreams;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import net.javacrumbs.shedlock.support.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -24,15 +24,12 @@ import org.reactivestreams.Subscription;
  * Subscriber that expects a single result and allows locking until complete or
  * error
  *
- * @param <T>
  */
 class SingleLockableSubscriber<T> implements Subscriber<T> {
 
-    @Nullable
-    private T value;
+    private @Nullable T value;
 
-    @Nullable
-    private Throwable error;
+    private @Nullable Throwable error;
 
     private final CountDownLatch latch = new CountDownLatch(1);
 

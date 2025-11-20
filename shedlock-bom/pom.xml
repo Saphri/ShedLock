@@ -3,13 +3,13 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <description>BOM for ShedLock modules</description>
     <artifactId>shedlock-bom</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
     <packaging>pom</packaging>
 
     <dependencyManagement>
@@ -56,7 +56,17 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-jdbc-internal</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-jooq</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-exposed</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -82,11 +92,6 @@
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-neo4j</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-opensearch</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -136,11 +141,6 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-consul</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.javacrumbs.shedlock</groupId>
                 <artifactId>shedlock-provider-arangodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -161,12 +161,12 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-spanner</artifactId>
+                <artifactId>shedlock-provider-datastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-s3</artifactId>
+                <artifactId>shedlock-provider-spanner</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -176,15 +176,14 @@
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-elasticsearch8</artifactId>
+                <artifactId>shedlock-provider-elasticsearch9</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-elasticsearch9</artifactId>
+                <artifactId>shedlock-provider-firestore</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
-
 </project>

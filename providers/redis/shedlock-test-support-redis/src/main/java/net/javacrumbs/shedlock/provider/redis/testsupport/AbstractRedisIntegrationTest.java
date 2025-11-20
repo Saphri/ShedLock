@@ -3,6 +3,7 @@ package net.javacrumbs.shedlock.provider.redis.testsupport;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import net.javacrumbs.shedlock.test.support.AbstractExtensibleLockProviderIntegrationTest;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The fix for this use-case only exists in Redis LockProvider implementations.
@@ -20,7 +21,7 @@ public abstract class AbstractRedisIntegrationTest extends AbstractExtensibleLoc
         assertThat(getLock(lockName)).isNull();
     }
 
-    protected abstract String getLock(String lockName);
+    protected abstract @Nullable String getLock(String lockName);
 
     protected String buildKey(String lockName, String env) {
         return String.format("%s:%s:%s", "job-lock", env, lockName);

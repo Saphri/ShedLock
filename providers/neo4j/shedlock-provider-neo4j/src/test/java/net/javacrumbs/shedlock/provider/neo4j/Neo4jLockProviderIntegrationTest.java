@@ -13,35 +13,39 @@
  */
 package net.javacrumbs.shedlock.provider.neo4j;
 
+import static net.javacrumbs.shedlock.test.support.DockerCleaner.removeImageInCi;
+
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.GraphDatabase;
-import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.neo4j.Neo4jContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
 public class Neo4jLockProviderIntegrationTest extends AbstractNeo4jLockProviderIntegrationTest {
     private static Neo4jTestUtils testUtils;
 
+    private static final DockerImageName DOCKER_IMAGE_NAME =
+            DockerImageName.parse("neo4j").withTag("5.22.0");
+
     @Container
-    private static final MyNeo4jContainer container = new MyNeo4jContainer();
+    private static final Neo4jContainer container = new Neo4jContainer(DOCKER_IMAGE_NAME).withoutAuthentication();
 
     @BeforeAll
     static void startDb() {
         testUtils = new Neo4jTestUtils(GraphDatabase.driver(container.getBoltUrl(), AuthTokens.none()));
     }
 
+    @AfterAll
+    public static void stopCouchbase() {
+        removeImageInCi(DOCKER_IMAGE_NAME.asCanonicalNameString());
+    }
+
     @Override
     protected Neo4jTestUtils getNeo4jTestUtils() {
         return testUtils;
-    }
-
-    private static class MyNeo4jContainer extends Neo4jContainer<MyNeo4jContainer> {
-        MyNeo4jContainer() {
-            super(DockerImageName.parse("neo4j").withTag("5.22.0"));
-            withoutAuthentication();
-        }
     }
 }

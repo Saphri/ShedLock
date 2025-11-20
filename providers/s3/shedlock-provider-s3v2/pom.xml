@@ -3,16 +3,16 @@
     <parent>
         <artifactId>shedlock-parent</artifactId>
         <groupId>net.javacrumbs.shedlock</groupId>
-        <version>6.7.1-SNAPSHOT</version>
+        <version>7.1.1-SNAPSHOT</version>
         <relativePath>../../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>shedlock-provider-s3v2</artifactId>
-    <version>6.7.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <properties>
-        <aws-java-sdk2-s3.version>2.31.53</aws-java-sdk2-s3.version>
+        <aws-java-sdk2-s3.version>2.38.9</aws-java-sdk2-s3.version>
     </properties>
 
     <dependencies>
@@ -23,21 +23,21 @@
         </dependency>
 
         <dependency>
-          <groupId>software.amazon.awssdk</groupId>
-          <artifactId>s3</artifactId>
-          <version>${aws-java-sdk2-s3.version}</version>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws-java-sdk2-s3.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${test-containers.ver}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>localstack</artifactId>
+            <artifactId>testcontainers-localstack</artifactId>
             <version>${test-containers.ver}</version>
             <scope>test</scope>
         </dependency>
@@ -56,22 +56,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>
-                                net.javacrumbs.shedlock.provider.s3v2
-                            </Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

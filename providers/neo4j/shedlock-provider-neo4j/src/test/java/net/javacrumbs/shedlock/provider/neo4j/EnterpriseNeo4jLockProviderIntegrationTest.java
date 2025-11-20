@@ -13,16 +13,24 @@
  */
 package net.javacrumbs.shedlock.provider.neo4j;
 
+import static net.javacrumbs.shedlock.test.support.DockerCleaner.removeImageInCi;
+
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.GraphDatabase;
-import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.neo4j.Neo4jContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
+@Disabled("Running out of disk space on GitHub runners")
 public class EnterpriseNeo4jLockProviderIntegrationTest extends AbstractNeo4jLockProviderIntegrationTest {
+    private static final DockerImageName DOCKER_IMAGE_NAME =
+            DockerImageName.parse("neo4j").withTag("5.22.0-enterprise");
+
     private static Neo4jTestUtils testUtils;
 
     @Container
@@ -33,14 +41,19 @@ public class EnterpriseNeo4jLockProviderIntegrationTest extends AbstractNeo4jLoc
         testUtils = new Neo4jTestUtils(GraphDatabase.driver(container.getBoltUrl(), AuthTokens.none()));
     }
 
+    @AfterAll
+    public static void stopCouchbase() {
+        removeImageInCi(DOCKER_IMAGE_NAME.asCanonicalNameString());
+    }
+
     @Override
     protected Neo4jTestUtils getNeo4jTestUtils() {
         return testUtils;
     }
 
-    private static class MyNeo4jContainer extends Neo4jContainer<MyNeo4jContainer> {
+    private static class MyNeo4jContainer extends Neo4jContainer {
         MyNeo4jContainer() {
-            super(DockerImageName.parse("neo4j").withTag("5.22.0-enterprise"));
+            super(DOCKER_IMAGE_NAME);
             addEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "eval");
             withoutAuthentication();
         }

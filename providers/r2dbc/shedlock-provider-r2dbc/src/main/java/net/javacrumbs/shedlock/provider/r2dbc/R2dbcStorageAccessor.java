@@ -15,54 +15,160 @@
  */
 package net.javacrumbs.shedlock.provider.r2dbc;
 
-import static java.util.Objects.requireNonNull;
+import static java.util.regex.Matcher.quoteReplacement;
 
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.R2dbcDataIntegrityViolationException;
 import io.r2dbc.spi.Statement;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
+import java.util.regex.Pattern;
+import net.javacrumbs.shedlock.core.LockConfiguration;
+import net.javacrumbs.shedlock.provider.sql.SqlStatementsSource;
+import net.javacrumbs.shedlock.support.AbstractStorageAccessor;
+import net.javacrumbs.shedlock.support.LockException;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Mono;
 
-class R2dbcStorageAccessor extends AbstractR2dbcStorageAccessor {
+class R2dbcStorageAccessor extends AbstractStorageAccessor {
+    private static final Pattern NAMED_PARAMETER_PATTERN = Pattern.compile(":[a-zA-Z]+");
 
     private final ConnectionFactory connectionFactory;
-    private R2dbcAdapter adapter;
+    private final SqlStatementsSource sqlStatementsSource;
+    private final R2dbcAdapter adapter;
 
-    R2dbcStorageAccessor(@NonNull ConnectionFactory connectionFactory, @NonNull String tableName) {
-        super(tableName);
-        this.connectionFactory = requireNonNull(connectionFactory, "dataSource can not be null");
+    R2dbcStorageAccessor(R2dbcLockProvider.Configuration configuration) {
+        this.connectionFactory = configuration.getConnectionFactory();
+        this.sqlStatementsSource = SqlStatementsSource.create(configuration);
+        this.adapter = R2dbcAdapter.create(configuration.getDatabaseProduct());
+    }
+
+    protected String toParameter(int index, String name) {
+        return adapter.toParameter(index, name);
+    }
+
+    protected void bind(Statement statement, int index, String name, Object value) {
+        adapter.bind(statement, index, name, value);
     }
 
     @Override
-    protected <T> Mono<T> executeCommand(
-            String sql, Function<Statement, Mono<T>> body, BiFunction<String, Throwable, Mono<T>> exceptionHandler) {
+    public boolean insertRecord(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(block(insertRecordReactive(lockConfiguration)));
+    }
+
+    @Override
+    public boolean updateRecord(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(block(updateRecordReactive(lockConfiguration)));
+    }
+
+    @Override
+    public boolean extend(LockConfiguration lockConfiguration) {
+        return Boolean.TRUE.equals(block(extendReactive(lockConfiguration)));
+    }
+
+    @Override
+    public void unlock(LockConfiguration lockConfiguration) {
+        block(unlockReactive(lockConfiguration));
+    }
+
+    private <T> @Nullable T block(Mono<T> mono) {
+        try {
+            return mono.block(Duration.ofSeconds(30));
+        } catch (Exception e) {
+            if (e instanceof LockException lockException) {
+                throw lockException;
+            }
+            throw new LockException("Unexpected exception when executing r2dbc operation", e);
+        }
+    }
+
+    Mono<Boolean> insertRecordReactive(LockConfiguration lockConfiguration) {
+        // Try to insert if the record does not exist (not optimal, but the simplest
+        // platform agnostic
+        // way)
+        var sqlStatement =
+                translate(sqlStatementsSource.getInsertStatement(), sqlStatementsSource.params(lockConfiguration));
+        return executeCommand(sqlStatement, this::handleInsertionException);
+    }
+
+    Mono<Boolean> updateRecordReactive(LockConfiguration lockConfiguration) {
+        var sqlStatement =
+                translate(sqlStatementsSource.getUpdateStatement(), sqlStatementsSource.params(lockConfiguration));
+        return executeCommand(sqlStatement, this::handleUpdateException);
+    }
+
+    Mono<Boolean> extendReactive(LockConfiguration lockConfiguration) {
+        var sqlStatement =
+                translate(sqlStatementsSource.getExtendStatement(), sqlStatementsSource.params(lockConfiguration));
+
+        logger.debug("Extending lock={} until={}", lockConfiguration.getName(), lockConfiguration.getLockAtMostUntil());
+
+        return executeCommand(sqlStatement, this::handleUnlockException);
+    }
+
+    Mono<Boolean> unlockReactive(LockConfiguration lockConfiguration) {
+        var sqlStatement =
+                translate(sqlStatementsSource.getUnlockStatement(), sqlStatementsSource.params(lockConfiguration));
+        return executeCommand(sqlStatement, this::handleUnlockException);
+    }
+
+    private Mono<Boolean> executeCommand(
+            SqlStatement sqlStatement, BiFunction<String, Throwable, Mono<Boolean>> exceptionHandler) {
         return Mono.usingWhen(
                 Mono.from(connectionFactory.create()).doOnNext(it -> it.setAutoCommit(true)),
-                conn -> body.apply(conn.createStatement(sql))
-                        .onErrorResume(throwable -> exceptionHandler.apply(sql, throwable)),
+                conn -> {
+                    Statement statement = conn.createStatement(sqlStatement.sql);
+                    for (int i = 0; i < sqlStatement.parameters.size(); i++) {
+                        SqlParam param = sqlStatement.parameters.get(i);
+                        bind(statement, i, param.name(), param.value());
+                    }
+                    return Mono.from(statement.execute())
+                            .flatMap(it -> Mono.from(it.getRowsUpdated()))
+                            .map(it -> it > 0)
+                            .onErrorResume(throwable -> exceptionHandler.apply(sqlStatement.sql, throwable));
+                },
                 Connection::close,
-                (connection, throwable) -> Mono.from(connection.close()).then(exceptionHandler.apply(sql, throwable)),
+                (connection, throwable) -> Mono.from(connection.close()),
                 connection -> Mono.from(connection.close()).then());
     }
 
-    @Override
-    protected String toParameter(int index, String name) {
-        return getAdapter().toParameter(index, name);
-    }
-
-    @Override
-    protected void bind(Statement statement, int index, String name, Object value) {
-        getAdapter().bind(statement, index, name, value);
-    }
-
-    private R2dbcAdapter getAdapter() {
-        synchronized (this) {
-            if (adapter == null) {
-                adapter = R2dbcAdapter.create(connectionFactory.getMetadata().getName());
-            }
-            return adapter;
+    Mono<Boolean> handleInsertionException(String sql, Throwable e) {
+        if (e instanceof R2dbcDataIntegrityViolationException) {
+            // lock record already exists
+            return Mono.just(false);
+        } else {
+            return Mono.error(new LockException("Unexpected exception when locking", e));
         }
     }
+
+    private SqlStatement translate(String statement, Map<String, Object> namedParameters) {
+        List<SqlParam> parameters = new ArrayList<>();
+        AtomicInteger index = new AtomicInteger(1);
+        var translatedSql = NAMED_PARAMETER_PATTERN.matcher(statement).replaceAll(result -> {
+            String key = result.group().substring(1);
+            if (!namedParameters.containsKey(key)) {
+                throw new IllegalStateException("Parameter " + key + " not found");
+            }
+            parameters.add(new SqlParam(key, namedParameters.get(key)));
+            return quoteReplacement(toParameter(index.getAndIncrement(), key));
+        });
+        return new SqlStatement(translatedSql, parameters);
+    }
+
+    Mono<Boolean> handleUpdateException(String sql, Throwable e) {
+        return Mono.error(new LockException("Unexpected exception when locking", e));
+    }
+
+    Mono<Boolean> handleUnlockException(String sql, Throwable e) {
+        return Mono.error(new LockException("Unexpected exception when unlocking", e));
+    }
+
+    private record SqlParam(String name, Object value) {}
+
+    private record SqlStatement(String sql, List<SqlParam> parameters) {}
 }

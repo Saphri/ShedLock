@@ -1,5 +1,58 @@
 # Release notes
-## 6.7.0 (2025-05-05)
+
+## 7.1.0 (2025-11-19)
+* Fixed position of @Nullable annotations (thanks @AndreiPurcaru)
+* Exposed MS SQL Server lock provider is using SYSUTCDATETIME for now
+* Dependency updates
+
+## 7.0.0 (2025-11-16)
+* OpenSearch client upgraded to 3.3.0 (breaking change on the driver side)
+* Dependency updates
+
+## 7.0.0-RC1 (2025-10-30)
+* Unified capabilities for all SQL based lock providers. All SQL based lock providers now support dbTime, custom table and column names and other cool features.
+  * Breaking: `DatabaseProduct` enum moved to `net.javacrumbs.shedlock.provider.sql.DatabaseProduct`
+* Improved error handling. All lock providers now throw `LockException` on unexpected errors.
+  * SQL based lock providers are more sensitive to errors when inserting lock record. This should prevent issues like #1254
+  * MySQL and MariaDB providers in `useDbTime()` mode are they only exception as the use INSERT IGNORE and all insert errors are ignored.
+* JdbcLockProvider checks for hostname when unlocking.
+* JdbcTemplateLockProvider: `withTimezone` deprecated, use newly introduced `forceUtcTimeZone` instead.
+* New Vert.x JDBC lock provider
+* Still supports JDK 17 but the build and tests are now run on JDK 21. Some libraries like jOOQ upgraded to versions requiring JDK 21.
+* Removed Consul provider, the driver seems to be unmaintained
+* Removed Elasticsearch 8 lock provider
+* Removed OpenSearch lock provider based on RestHighLevelClient
+* Removed S3 v1 lock provider
+* JSpecify annotations
+* Support for JPMS where possible
+* Dependency updates, most notably
+  * Spring 7
+  * Exposed 1 (breaking change)
+  * Ignite 3 (breaking change)
+
+
+## 6.10.0 (2025-08-20)
+* Firestore provider added (thanks @rgopaluni)
+* Nullability annotations refactored
+* Dependency updates
+
+## 6.9.2 (2025-07-07)
+* OpenSearchLockProvider constructor made public
+
+## 6.9.1 (2025-07-07)
+* Ability to specify index in OpenSearchLockProvider
+* OpenSearchLockProvider constructor made public
+* Dependency updates
+
+## 6.9.0 (2025-06-07)
+* Added Exposed provider (thanks @hungrytech)
+* Dependency updates
+
+## 6.8.0 (2025-05-31)
+* Added `riskyUnlock` to HazelcastLockProvider
+* Dependency updates
+
+## 6.7.0 (2025-05-22)
 * safeUpdate mode for Redis Providers (thanks @shotmk)
 
 ## 6.6.0 (2025-05-05)

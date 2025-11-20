@@ -5,7 +5,6 @@ import com.google.cloud.spanner.Database;
 import com.google.cloud.spanner.DatabaseAdminClient;
 import com.google.cloud.spanner.DatabaseClient;
 import com.google.cloud.spanner.DatabaseId;
-import com.google.cloud.spanner.Instance;
 import com.google.cloud.spanner.InstanceAdminClient;
 import com.google.cloud.spanner.InstanceConfigId;
 import com.google.cloud.spanner.InstanceId;
@@ -20,7 +19,7 @@ import java.util.concurrent.ExecutionException;
 import net.javacrumbs.shedlock.provider.spanner.SpannerLockProvider.Configuration;
 import net.javacrumbs.shedlock.test.support.AbstractStorageBasedLockProviderIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.testcontainers.containers.SpannerEmulatorContainer;
+import org.testcontainers.gcloud.SpannerEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -29,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
 public abstract class AbstractSpannerStorageBasedLockProviderIntegrationTest
         extends AbstractStorageBasedLockProviderIntegrationTest {
 
-    private static final String SPANNER_EMULATOR_IMAGE = "gcr.io/cloud-spanner-emulator/emulator:1.5.12";
+    private static final String SPANNER_EMULATOR_IMAGE = "gcr.io/cloud-spanner-emulator/emulator:1.5.41";
     private static final String PROJECT_NAME = "test-project";
     private static final String INSTANCE_NAME = "test-instance";
     private static final String DATABASE_NAME = "test-db";
@@ -45,7 +44,7 @@ public abstract class AbstractSpannerStorageBasedLockProviderIntegrationTest
     @BeforeAll
     public static void setUpSpanner() {
         Spanner spanner = createSpannerService();
-        InstanceId instanceId = createInstance(spanner);
+        createInstance(spanner);
         DatabaseId databaseId = createDatabase(spanner);
         databaseClient = spanner.getDatabaseClient(databaseId);
         Configuration configuration =
@@ -72,7 +71,7 @@ public abstract class AbstractSpannerStorageBasedLockProviderIntegrationTest
         InstanceId instanceId = InstanceId.of(PROJECT_NAME, INSTANCE_NAME);
         InstanceAdminClient insAdminClient = spanner.getInstanceAdminClient();
         try {
-            Instance instance = insAdminClient
+            insAdminClient
                     .createInstance(InstanceInfo.newBuilder(instanceId)
                             .setNodeCount(1)
                             .setDisplayName("Test instance")

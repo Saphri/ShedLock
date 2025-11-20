@@ -37,7 +37,6 @@ import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.core.SimpleLock;
 import net.javacrumbs.shedlock.support.LockException;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
 
 /**
  * Uses etcd keys and the version of the key value pairs as locking mechanism.
@@ -60,18 +59,17 @@ public class EtcdLockProvider implements LockProvider {
 
     private final String environment;
 
-    public EtcdLockProvider(@NonNull Client client) {
+    public EtcdLockProvider(Client client) {
         this(client, ENV_DEFAULT);
     }
 
-    public EtcdLockProvider(@NonNull Client client, @NonNull String environment) {
+    public EtcdLockProvider(Client client, String environment) {
         this.etcdTemplate = new EtcdTemplate(client);
         this.environment = environment;
     }
 
     @Override
-    @NonNull
-    public Optional<SimpleLock> lock(@NonNull LockConfiguration lockConfiguration) {
+    public Optional<SimpleLock> lock(LockConfiguration lockConfiguration) {
         String key = buildKey(lockConfiguration.getName());
         String value = buildValue();
 
@@ -146,7 +144,7 @@ public class EtcdLockProvider implements LockProvider {
             this.leaseClient = client.getLeaseClient();
         }
 
-        public Long createLease(long lockUntilInSeconds) {
+        private Long createLease(long lockUntilInSeconds) {
             try {
                 return leaseClient.grant(lockUntilInSeconds).get().getID();
             } catch (Exception e) {
@@ -154,7 +152,7 @@ public class EtcdLockProvider implements LockProvider {
             }
         }
 
-        public Optional<Long> tryToLock(String key, String value, Instant lockAtMostUntil) {
+        private Optional<Long> tryToLock(String key, String value, Instant lockAtMostUntil) {
             Long leaseId = createLease(getSecondsUntil(lockAtMostUntil));
             try {
                 ByteSequence lockKey = toByteSequence(key);
@@ -182,7 +180,7 @@ public class EtcdLockProvider implements LockProvider {
             }
         }
 
-        public void revoke(Long leaseId) {
+        private void revoke(Long leaseId) {
             try {
                 leaseClient.revoke(leaseId).get();
             } catch (Exception e) {
@@ -201,12 +199,16 @@ public class EtcdLockProvider implements LockProvider {
          * If the key has already been put with an other leaseId earlier, the old
          * leaseId will be timed out and then removed, eventually.
          */
-        public void putWithLeaseId(String key, String value, Long leaseId) {
+        private void putWithLeaseId(String key, String value, Long leaseId) {
             ByteSequence lockKey = toByteSequence(key);
             ByteSequence lockValue = toByteSequence(value);
 
             PutOption putOption = putOptionWithLeaseId(leaseId);
-            kvClient.put(lockKey, lockValue, putOption);
+            try {
+                kvClient.put(lockKey, lockValue, putOption).get();
+            } catch (Exception e) {
+                throw new LockException("Can not unlock " + leaseId, e);
+            }
         }
 
         private ByteSequence toByteSequence(String key) {

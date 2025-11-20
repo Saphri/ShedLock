@@ -16,7 +16,6 @@ import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.core.SimpleLock;
 import net.javacrumbs.shedlock.support.LockException;
-import net.javacrumbs.shedlock.support.annotation.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,11 +36,11 @@ public class NatsJetStreamLockProvider implements LockProvider {
 
     private final KeyValue kv;
 
-    public NatsJetStreamLockProvider(@NonNull Connection connection) {
+    public NatsJetStreamLockProvider(final Connection connection) {
         this(connection, BUCKET_NAME);
     }
 
-    public NatsJetStreamLockProvider(@NonNull Connection connection, @NonNull String bucketName) {
+    public NatsJetStreamLockProvider(final Connection connection, final String bucketName) {
         requireNonNull(connection, "connection can not be null");
         requireNonNull(bucketName, "bucketName can not be null");
 
@@ -53,9 +52,9 @@ public class NatsJetStreamLockProvider implements LockProvider {
 
             try {
                 var config = KeyValueConfiguration.builder()
-                    .name(bucketName)
-                    .storageType(StorageType.Memory)
-                    .build();
+                        .name(bucketName)
+                        .storageType(StorageType.Memory)
+                        .build();
 
                 connection.keyValueManagement().create(config);
                 kvInit = connection.keyValue(bucketName);
@@ -68,8 +67,7 @@ public class NatsJetStreamLockProvider implements LockProvider {
     }
 
     @Override
-    @NonNull
-    public Optional<SimpleLock> lock(@NonNull LockConfiguration lockConfiguration) {
+    public Optional<SimpleLock> lock(final LockConfiguration lockConfiguration) {
         try {
             var entry = kv.get(lockConfiguration.getName());
 
@@ -90,8 +88,7 @@ public class NatsJetStreamLockProvider implements LockProvider {
         }
     }
 
-    private Optional<SimpleLock> createLock(LockConfiguration lockConfiguration) {
-        var now = ClockProvider.now();
+    private Optional<SimpleLock> createLock(final LockConfiguration lockConfiguration) {
         var lockUntil = lockConfiguration.getLockAtMostUntil();
         var value = lockUntil.toString().getBytes();
 
@@ -104,8 +101,7 @@ public class NatsJetStreamLockProvider implements LockProvider {
         }
     }
 
-    private Optional<SimpleLock> updateLock(LockConfiguration lockConfiguration, long revision) {
-        var now = ClockProvider.now();
+    private Optional<SimpleLock> updateLock(final LockConfiguration lockConfiguration, final long revision) {
         var lockUntil = lockConfiguration.getLockAtMostUntil();
         var value = lockUntil.toString().getBytes();
 
@@ -118,15 +114,9 @@ public class NatsJetStreamLockProvider implements LockProvider {
         }
     }
 
-    private void unlock(LockConfiguration lockConfiguration) {
+    private void unlock(final LockConfiguration lockConfiguration) {
         var lockAtLeastUntil = lockConfiguration.getLockAtLeastUntil();
         var now = ClockProvider.now();
-
-        // If lockAtLeastUntil is in the future, we don't unlock, since the lock is
-        // still active.
-        if (lockAtLeastUntil.isAfter(now)) {
-            return;
-        }
 
         try {
             var entry = kv.get(lockConfiguration.getName());
@@ -143,6 +133,15 @@ public class NatsJetStreamLockProvider implements LockProvider {
                 return;
             }
 
+            // If lockAtLeastUntil is in the future, we update the lock to expire at
+            // lockAtLeastUntil instead of deleting it. This ensures the lock is held
+            // for the minimum duration.
+            if (lockAtLeastUntil.isAfter(now)) {
+                var value = lockAtLeastUntil.toString().getBytes();
+                kv.update(lockConfiguration.getName(), value, entry.getRevision());
+                return;
+            }
+
             kv.delete(lockConfiguration.getName());
         } catch (IOException | JetStreamApiException e) {
             throw new LockException("Failed to unlock", e);
@@ -153,7 +152,8 @@ public class NatsJetStreamLockProvider implements LockProvider {
 
         private final NatsJetStreamLockProvider lockProvider;
 
-        private NatsJetStreamLock(NatsJetStreamLockProvider lockProvider, LockConfiguration lockConfiguration) {
+        private NatsJetStreamLock(
+                final NatsJetStreamLockProvider lockProvider, final LockConfiguration lockConfiguration) {
             super(lockConfiguration);
             this.lockProvider = lockProvider;
         }
