@@ -1,16 +1,17 @@
 package net.javacrumbs.shedlock.provider.nats.jetstream;
 
-import static net.javacrumbs.shedlock.core.ClockProvider.now;
+import static java.util.Objects.requireNonNull;
 
 import io.nats.client.Connection;
 import io.nats.client.JetStreamApiException;
+import io.nats.client.KeyValue;
 import io.nats.client.api.KeyValueConfiguration;
+import io.nats.client.api.StorageType;
 import java.io.IOException;
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import net.javacrumbs.shedlock.core.AbstractSimpleLock;
+import net.javacrumbs.shedlock.core.ClockProvider;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.core.SimpleLock;
@@ -22,113 +23,144 @@ import org.slf4j.LoggerFactory;
 /**
  * Lock Provider for NATS JetStream
  *
- * @see <a href="https://docs.nats.io/nats-concepts/jetstream">JetStream</a>
+ * <p>
+ * It uses a single bucket for all locks.
+ *
+ * @see <a href=
+ *      "https://docs.nats.io/nats-concepts/jetstream/key-value-store">KV</a>
  */
-public class NatsJetStreamLockProvider implements LockProvider, AutoCloseable {
+public class NatsJetStreamLockProvider implements LockProvider {
 
-    private final Logger log = LoggerFactory.getLogger(NatsJetStreamLockProvider.class);
+    private static final Logger logger = LoggerFactory.getLogger(NatsJetStreamLockProvider.class);
 
-    private final ScheduledExecutorService unlockScheduler = Executors.newSingleThreadScheduledExecutor();
+    private static final String BUCKET_NAME = "shedlock-locks";
 
-    private final Connection connection;
+    private final KeyValue kv;
 
-    /**
-     * Create NatsJetStreamLockProvider
-     *
-     * @param connection
-     *                   io.nats.client.Connection
-     */
     public NatsJetStreamLockProvider(@NonNull Connection connection) {
-        this.connection = connection;
+        this(connection, BUCKET_NAME);
+    }
+
+    public NatsJetStreamLockProvider(@NonNull Connection connection, @NonNull String bucketName) {
+        requireNonNull(connection, "connection can not be null");
+        requireNonNull(bucketName, "bucketName can not be null");
+
+        KeyValue kvInit;
+        try {
+            kvInit = connection.keyValue(bucketName);
+        } catch (IOException e) {
+            logger.debug("Failed to get bucket '{}'. Trying to create it.", bucketName, e);
+
+            try {
+                var config = KeyValueConfiguration.builder()
+                    .name(bucketName)
+                    .storageType(StorageType.Memory)
+                    .build();
+
+                connection.keyValueManagement().create(config);
+                kvInit = connection.keyValue(bucketName);
+
+            } catch (IOException | JetStreamApiException ex) {
+                throw new LockException("Failed to create bucket", ex);
+            }
+        }
+        this.kv = kvInit;
     }
 
     @Override
     @NonNull
     public Optional<SimpleLock> lock(@NonNull LockConfiguration lockConfiguration) {
-        var bucketName = String.format("SHEDLOCK-%s", lockConfiguration.getName());
-        log.debug("Attempting lock for bucketName: {}", bucketName);
         try {
-            var lockTime = lockConfiguration.getLockAtMostFor();
+            var entry = kv.get(lockConfiguration.getName());
 
-            // nats cannot accept below 100ms
-            if (lockTime.toMillis() < 100L) {
-                log.debug(
-                        "NATS must be above 100ms for smallest locktime, correcting {}ms to 100ms!",
-                        lockTime.toMillis());
-                lockTime = Duration.ofMillis(100L);
+            if (entry == null) {
+                return createLock(lockConfiguration);
             }
 
-            connection
-                    .keyValueManagement()
-                    .create(KeyValueConfiguration.builder()
-                            .name(bucketName)
-                            .ttl(lockTime)
-                            .build());
-            connection.keyValue(bucketName).create("LOCKED", "ShedLock internal value. Do not touch.".getBytes());
+            var lockUntil = Instant.parse(new String(entry.getValue()));
 
-            log.debug("Acquired lock for bucketName: {}", bucketName);
-
-            return Optional.of(new NatsJetStreamLock(lockConfiguration, this));
-        } catch (JetStreamApiException e) {
-            if (e.getApiErrorCode() == 10071) {
-                log.debug("Rejected lock for bucketName: {}, message: {}", bucketName, e.getMessage());
-                return Optional.empty();
-            } else if (e.getApiErrorCode() == 10058) {
-                log.warn(
-                        "Settings on the bucket TTL does not match configuration. Manually delete the bucket on NATS server, or revert lock settings!");
+            if (lockUntil.isAfter(ClockProvider.now())) {
                 return Optional.empty();
             }
-            log.warn("Rejected lock for bucketName: {}", bucketName);
-            throw new IllegalStateException(e);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
+
+            return updateLock(lockConfiguration, entry.getRevision());
+
+        } catch (IOException | JetStreamApiException e) {
+            throw new LockException("Failed to get lock", e);
         }
     }
 
-    void unlock(LockConfiguration lockConfiguration) {
-        var bucketName = String.format("SHEDLOCK-%s", lockConfiguration.getName());
-        log.debug("Unlocking for bucketName: {}", bucketName);
-        var additionalSessionTtl = Duration.between(now(), lockConfiguration.getLockAtLeastUntil());
-        if (!additionalSessionTtl.isNegative() && !additionalSessionTtl.isZero()) {
-            log.debug("Lock will still be held for {}", additionalSessionTtl);
-            scheduleUnlock(bucketName, additionalSessionTtl);
-        } else {
-            destroy(bucketName);
-        }
-    }
+    private Optional<SimpleLock> createLock(LockConfiguration lockConfiguration) {
+        var now = ClockProvider.now();
+        var lockUntil = lockConfiguration.getLockAtMostUntil();
+        var value = lockUntil.toString().getBytes();
 
-    private void scheduleUnlock(String bucketName, Duration unlockTime) {
-        unlockScheduler.schedule(
-                catchExceptions(() -> destroy(bucketName)), unlockTime.toMillis(), TimeUnit.MILLISECONDS);
-    }
-
-    private void destroy(String bucketName) {
-        log.debug("Destroying key in bucketName: {}", bucketName);
         try {
-            connection.keyValue(bucketName).delete("LOCKED");
-        } catch (Exception e) {
-            throw new LockException("Can not remove key. " + e.getMessage());
+            kv.create(lockConfiguration.getName(), value);
+            return Optional.of(new NatsJetStreamLock(this, lockConfiguration));
+
+        } catch (IOException | JetStreamApiException e) {
+            return Optional.empty(); // Should be caused by a race condition, another process was faster.
         }
     }
 
-    private Runnable catchExceptions(Runnable runnable) {
-        return () -> {
-            try {
-                runnable.run();
-            } catch (Throwable t) {
-                log.warn("Exception while execution", t);
-            }
-        };
+    private Optional<SimpleLock> updateLock(LockConfiguration lockConfiguration, long revision) {
+        var now = ClockProvider.now();
+        var lockUntil = lockConfiguration.getLockAtMostUntil();
+        var value = lockUntil.toString().getBytes();
+
+        try {
+            kv.update(lockConfiguration.getName(), value, revision);
+            return Optional.of(new NatsJetStreamLock(this, lockConfiguration));
+
+        } catch (IOException | JetStreamApiException e) {
+            return Optional.empty(); // Should be caused by a race condition, another process was faster.
+        }
     }
 
-    @Override
-    public void close() {
-        unlockScheduler.shutdown();
+    private void unlock(LockConfiguration lockConfiguration) {
+        var lockAtLeastUntil = lockConfiguration.getLockAtLeastUntil();
+        var now = ClockProvider.now();
+
+        // If lockAtLeastUntil is in the future, we don't unlock, since the lock is
+        // still active.
+        if (lockAtLeastUntil.isAfter(now)) {
+            return;
+        }
+
         try {
-            if (!unlockScheduler.awaitTermination(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS)) {
-                unlockScheduler.shutdownNow();
+            var entry = kv.get(lockConfiguration.getName());
+
+            if (entry == null) {
+                return; // Already unlocked
             }
-        } catch (InterruptedException ignored) {
+
+            var lockUntil = Instant.parse(new String(entry.getValue()));
+            var lockAtMostUntil = lockConfiguration.getLockAtMostUntil();
+
+            // If the lock has been updated by another process, we don't unlock.
+            if (lockUntil.isAfter(lockAtMostUntil)) {
+                return;
+            }
+
+            kv.delete(lockConfiguration.getName());
+        } catch (IOException | JetStreamApiException e) {
+            throw new LockException("Failed to unlock", e);
+        }
+    }
+
+    private static final class NatsJetStreamLock extends AbstractSimpleLock {
+
+        private final NatsJetStreamLockProvider lockProvider;
+
+        private NatsJetStreamLock(NatsJetStreamLockProvider lockProvider, LockConfiguration lockConfiguration) {
+            super(lockConfiguration);
+            this.lockProvider = lockProvider;
+        }
+
+        @Override
+        public void doUnlock() {
+            lockProvider.unlock(lockConfiguration);
         }
     }
 }
